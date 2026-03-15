@@ -1,0 +1,28 @@
+name = "cerebro-ai"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = [ "nodejs_compat" ]
+
+[[durable_objects.bindings]]
+name = "RESEARCH_AGENT"
+class_name = "CerebroAgent"
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["CerebroAgent"]
+
+[[workflows]]
+name = "DEEPDIVE_WORKFLOW"
+binding = "DEEPDIVE_WORKFLOW"
+class_name = "DeepDiveWorkflow"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "knowledge-graph-index"
+remote = true
+
+[ai]
+binding = "AI"
+
+[observability]
+enabled = true
