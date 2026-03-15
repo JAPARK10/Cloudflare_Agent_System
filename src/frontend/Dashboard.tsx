@@ -791,13 +791,13 @@ export default function CerebroDashboard() {
                             </div>
                         ))}
                     </div>
-                    <div className="p-6 border-t border-white/5 bg-white/[0.02]">
+                    <div className="p-8 border-t border-white/5 bg-white/[0.01]">
                         <button
                             onClick={isRecording ? stopRecording : startRecording}
-                            className={`w-full py-4 rounded-xl flex items-center justify-center gap-3 transition-all font-bold text-[11px] tracking-[0.2em] uppercase record-btn ${isRecording ? 'recording bg-red-600/80 text-white shadow-[0_0_20px_rgba(220,38,38,0.4)]' : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10 hover:border-white/20'}`}
+                            className={`btn-voice-insight ${isRecording ? 'recording' : ''}`}
                         >
-                            <div className={`w-2.5 h-2.5 rounded-full ${isRecording ? 'bg-white animate-pulse' : 'bg-red-500'}`}></div>
-                            {isRecording ? 'End Session' : 'Voice Insight'}
+                            <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-white animate-pulse' : 'bg-indigo-500'} shadow-[0_0_10px_rgba(99,102,241,0.5)]`}></div>
+                            {isRecording ? 'Finalizing Synthesis...' : 'Neural Voice Insight'}
                         </button>
                     </div>
                 </aside>
@@ -996,9 +996,9 @@ export default function CerebroDashboard() {
                         </div>
                     </div>
                 )}
-                <div className="status-bar glass-heavy rounded-3xl mx-10 mb-10 h-24 px-10">
-                    <div className="flex flex-col gap-2">
-                        <span className="text-indigo-400 font-black uppercase tracking-[0.4em] text-[9px]">Neural Link Status</span>
+                <div className="status-bar glass-heavy rounded-3xl h-24 px-10">
+                    <div className="status-label-group">
+                        <span className="text-indigo-400 font-black uppercase tracking-[0.4em] text-[9px]">Neural Link</span>
                         <div className="flex items-center gap-3">
                             <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_12px_rgba(16,185,129,0.8)] animate-pulse"></div>
                             <span className="text-white font-mono text-[11px] uppercase tracking-widest font-bold">{status}</span>
@@ -1006,8 +1006,8 @@ export default function CerebroDashboard() {
                     </div>
 
                     <div className="flex items-center gap-8 px-12 border-x border-white/5">
-                        <div className="flex flex-col gap-2">
-                            <span className="text-[9px] text-slate-500 font-black uppercase tracking-[0.4em]">Visual Resolvability</span>
+                        <div className="status-label-group">
+                            <span className="text-[9px] text-slate-500 font-black uppercase tracking-[0.4em]">Resolvability</span>
                             <div className="flex items-center gap-6">
                                 <input
                                     type="range"
@@ -1016,22 +1016,20 @@ export default function CerebroDashboard() {
                                     step={0.05}
                                     value={zoom}
                                     onChange={(e) => handleZoomChange(Number(e.target.value))}
-                                    className="w-56"
+                                    className="w-48"
                                 />
                                 <span className="text-[10px] text-indigo-400 font-mono font-black">{Math.round(zoom * 100)}%</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-6 ml-10">
-                        <button
-                            onClick={() => window.open(`/reasoning?project=${activeSlug}`, '_blank')}
-                            className="px-6 h-12 bg-indigo-500/10 hover:bg-indigo-500 border border-white/5 rounded-2xl text-[10px] font-black text-indigo-400 hover:text-white uppercase tracking-[0.2em] transition-all shadow-xl active:scale-95 flex items-center gap-3 group"
-                        >
-                            <span className="text-sm group-hover:rotate-12 transition-transform">👁</span> 
-                            Reasoning Hub
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => window.open(`/reasoning?project=${activeSlug}`, '_blank')}
+                        className="btn-reasoning-hub"
+                    >
+                        <span className="text-lg">⚡</span> 
+                        Neural Reasoning Hub
+                    </button>
                 </div>
             </main>
 
