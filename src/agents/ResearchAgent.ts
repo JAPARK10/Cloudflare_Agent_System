@@ -105,10 +105,16 @@ export class CerebroAgent extends Agent<Env, ResearchProjectState> {
             }
 
             if (audioData) {
-                const response = await this.env.AI.run('@cf/openai/whisper', {
-                    audio: Array.from(audioData)
-                });
-                noteText = response.text;
+                try {
+                    const response = await this.env.AI.run('@cf/openai/whisper', {
+                        audio: Array.from(audioData)
+                    });
+                    noteText = response.text;
+                } catch (e) {
+                    console.error("Whisper failed, attempting secondary model or returning raw data error:", e);
+                    // No fallback for whisper yet, but we catch it
+                    throw new Error("Voice transcription service is temporarily unavailable. Please try typing your note.");
+                }
             } else if (typeof content === 'string') {
                 noteText = content;
             }
@@ -328,13 +334,43 @@ export class CerebroAgent extends Agent<Env, ResearchProjectState> {
 
         const systemPrompt = `You are Cerebro, a research synthesis engine.\nThe user is asking about the node: "${entity.label}".\nCurrent knowledge summary for this node: "${entity.summary}".\n\nProvide a concise answer (2-3 sentences) to the user's question based on this context. If you don't know, briefly suggest what research could be done.\nUser question: "${query}"`;
 
-        const response = await this.env.AI.run('@cf/meta/llama-3-8b-instruct', {
-            messages: [{ role: 'system', content: systemPrompt }],
-            max_tokens: 250
-        });
+        const executeLlm = async (prompt: string, attempt: number) => {
+            console.log(`Explore Attempt ${attempt}...`);
+            const models = [
+                '@cf/meta/llama-3.1-8b-instruct',
+                '@cf/meta/llama-3-8b-instruct',
+                '@cf/meta/llama-2-7b-chat-fp16'
+            ];
+            const model = models[Math.min(attempt - 1, models.length - 1)];
+            
+            try {
+                const response = await this.env.AI.run(model, {
+                    messages: [{ role: 'system', content: prompt }],
+                    max_tokens: 250
+                });
+                // @ts-ignore
+                return response.response || response.text;
+            } catch (err) {
+                console.error(`Explore failed on ${model}:`, err);
+                throw err;
+            }
+        };
 
-        // @ts-ignore
-        return { response: response.response };
+        try {
+            let resultText = '';
+            for (let i = 1; i <= 3; i++) {
+                try {
+                    resultText = await executeLlm(systemPrompt, i);
+                    if (resultText) break;
+                } catch (e) {
+                    if (i === 3) throw e;
+                }
+            }
+            return { response: resultText || "Synthesis complete. No further insights at this depth." };
+        } catch (e) {
+            console.error("Explore Topic Final Failure:", e);
+            return { response: "Neural link unstable. Analysis: " + entity.summary };
+        }
     }
 
     @callable()
@@ -345,29 +381,44 @@ export class CerebroAgent extends Agent<Env, ResearchProjectState> {
         if (!entity) return { suggestions: ["No context available for this node."] };
 
         const systemPrompt = `You are Cerebro, a high-fidelity intelligence synthesis engine.
-Your task is to analyze the node "${entity.label}" and provide 2-5 "Resonance Angles".
+Your task is to analyze the node "${entity.label}" and provide 2-5 "Resonance Perspectives".
 
-Resonance Angles are high-impact research perspectives or "different ways of looking at this topic" that the user should explore next.
+Resonance Perspectives are distinct, high-impact research directions or "different ways of looking at this topic" specifically tailored to the unique findings of this node.
 
 Node Summary: ${entity.summary}
 
 RULES:
-1. Provide exactly 2-5 angles.
-2. Each angle should be a concise, provocative research prompt (1 sentence).
-3. Output MUST be a valid JSON object with a single key "suggestions" containing an array of strings.
-4. DO NOT include any text before or after the JSON.`;
+1. Provide exactly 2-5 perspectives.
+2. Each perspective should be a concise, provocative, and highly contextual research prompt (1 sentence).
+3. Ensure the perspectives are UNIQUE to this node's summary, not generic research advice.
+4. Output MUST be a valid JSON object with a single key "suggestions" containing an array of strings.
+5. DO NOT include any text before or after the JSON.`;
 
         const executeLlm = async (prompt: string, attempt: number) => {
             console.log(`Resonance Angles Attempt ${attempt}...`);
-            const response = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: attempt > 1 ? "Your previous response was not valid JSON. Please return ONLY the JSON object now." : "Generate resonance angles." }
-                ],
-                response_format: { type: 'json_object' }
-            });
-            // @ts-ignore
-            return response.response;
+            // Model fallback list
+            const models = [
+                '@cf/meta/llama-3.1-8b-instruct',
+                '@cf/meta/llama-3-8b-instruct',
+                '@cf/meta/llama-2-7b-chat-fp16'
+            ];
+            
+            const model = models[Math.min(attempt - 1, models.length - 1)];
+            console.log(`Using model: ${model}`);
+
+            try {
+                const response = await this.env.AI.run(model, {
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: attempt > 1 ? "Your previous response was not valid JSON. Please return ONLY the JSON object now." : "Generate resonance angles." }
+                    ]
+                });
+                // @ts-ignore
+                return response.response || response.text;
+            } catch (err) {
+                console.error(`LLM Call failed on ${model}:`, err);
+                throw err;
+            }
         };
 
         let resultText = '';

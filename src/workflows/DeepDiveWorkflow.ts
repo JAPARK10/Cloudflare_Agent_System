@@ -16,15 +16,36 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
             
             Be highly specific and avoid generic definitions.`;
 
-            const response = await this.env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: `Topic: ${topic}` }
-                ],
-                max_tokens: 2048
-            });
+            const models = [
+                '@cf/meta/llama-3.1-8b-instruct',
+                '@cf/meta/llama-3-8b-instruct',
+                '@cf/meta/llama-2-7b-chat-fp16'
+            ];
 
-            const rawResponse = response.response;
+            let response;
+            let lastErr;
+            for (const model of models) {
+                try {
+                    console.log(`Expansion Attempting with model: ${model}`);
+                    const result = await this.env.AI.run(model, {
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: `Topic: ${topic}` }
+                        ],
+                        max_tokens: 2048
+                    });
+                    // @ts-ignore
+                    response = result.response || result.text;
+                    if (response) break;
+                } catch (err) {
+                    console.error(`Expansion failed on ${model}:`, err);
+                    lastErr = err;
+                }
+            }
+
+            if (!response) throw lastErr || new Error("All AI models failed for topic expansion.");
+
+            const rawResponse = response;
             console.log(`Step 1 Response received (${rawResponse.length} chars)`);
 
             try {
@@ -72,16 +93,25 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
                        FIX IT NOW. REMEMBER: NO MARKDOWN, NO TEXT, ONLY RAW JSON.`
                     : expansion;
 
-                const response = await this.env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+                const models = [
+                    '@cf/meta/llama-3.1-8b-instruct',
+                    '@cf/meta/llama-3-8b-instruct',
+                    '@cf/meta/llama-2-7b-chat-fp16'
+                ];
+                
+                const model = models[Math.min(i, models.length - 1)];
+                console.log(`Discovery Attempting with model: ${model}`);
+
+                const result = await this.env.AI.run(model, {
                     messages: [
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: retryPrompt }
                     ],
-                    response_format: { type: 'json_object' },
                     max_tokens: 2048
                 });
 
-                const rawResponse = (response.response || "").trim();
+                // @ts-ignore
+                const rawResponse = (result.response || result.text || "").trim();
                 lastResponse = rawResponse;
 
                 try {

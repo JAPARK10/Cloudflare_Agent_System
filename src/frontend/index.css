@@ -59,23 +59,24 @@ body {
 
 /* Dashboard Layout */
 .dashboard {
-    display: grid;
-    grid-template-columns: 340px 1fr 360px;
-    grid-template-rows: 1fr;
+    position: relative;
+    width: 100vw;
     height: 100vh;
-    gap: 1.25rem;
-    padding: 1.25rem;
     background: radial-gradient(circle at 50% 50%, #1e293b 0%, #020617 100%);
     overflow: hidden;
 }
 
 .left-column {
+    position: absolute;
+    top: 1.25rem;
+    left: 1.25rem;
+    bottom: 1.25rem;
+    width: 340px;
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
-    min-width: 0;
-    min-height: 0;
-    height: 100%;
+    z-index: 10;
+    pointer-events: none;
 }
 
 .panel {
@@ -85,6 +86,7 @@ body {
     border-radius: 1.25rem;
     transition: all 0.3s ease;
     min-height: 0;
+    pointer-events: auto;
 }
 
 .archive-container {
@@ -203,12 +205,13 @@ input[type="range"]:hover::-webkit-slider-thumb {
 
 /* Graph Styling */
 .graph-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
     height: 100%;
-    border-radius: 1.5rem;
-    position: relative;
+    z-index: 0;
     overflow: hidden;
-    background: rgba(2, 6, 23, 0.4);
-    border: 1px solid var(--border-subtle);
+    background: transparent;
 }
 
 .node {
@@ -266,6 +269,7 @@ input[type="range"]:hover::-webkit-slider-thumb {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    pointer-events: auto;
 }
 
 .btn-primary:hover {
@@ -287,6 +291,7 @@ input[type="range"]:hover::-webkit-slider-thumb {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-size: 0.75rem;
+    pointer-events: auto;
 }
 
 .btn-glass:hover {
@@ -307,6 +312,7 @@ input[type="range"]:hover::-webkit-slider-thumb {
     outline: none;
     transition: all 0.3s ease;
     font-weight: 500;
+    pointer-events: auto;
 }
 
 .search-input:focus {
@@ -334,6 +340,7 @@ input[type="range"]:hover::-webkit-slider-thumb {
     border-radius: 1.5rem;
     padding: 1.75rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: auto;
 }
 
 .glass-card:hover {
@@ -362,6 +369,7 @@ input[type="range"]:hover::-webkit-slider-thumb {
     gap: 0.75rem;
     position: relative;
     overflow: hidden;
+    pointer-events: auto;
 }
 
 .record-btn:hover {
@@ -377,17 +385,43 @@ input[type="range"]:hover::-webkit-slider-thumb {
 
 .status-bar {
     position: absolute;
-    bottom: 1.5rem;
-    left: 1.5rem;
-    right: 1.5rem;
-    height: 5.5rem;
+    bottom: 2.5rem;
+    top: auto !important;
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    min-width: 800px;
+    height: 6rem;
     z-index: 100;
     display: flex;
     align-items: center;
     justify-content: space-between;
     pointer-events: auto;
-    padding: 0 2rem;
-    gap: 2.5rem;
+    padding: 0 3.5rem;
+    gap: 4rem;
+    background: var(--bg-glass-heavy);
+    backdrop-filter: blur(40px);
+    border: 1px solid var(--border-subtle);
+    border-radius: 2.5rem;
+    box-shadow: var(--shadow-premium);
+}
+
+.detail-panel {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    bottom: 10rem; /* Space for the taller status bar */
+    width: 420px;
+    z-index: 40;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-panel > div {
+    pointer-events: auto;
+    height: 100%;
+    width: 100%;
 }
 
 .btn-reasoning-hub {

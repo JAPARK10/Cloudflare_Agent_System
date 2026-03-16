@@ -129,7 +129,7 @@ const DetailPanel = ({ node, entities, slug, onExpand }: DetailPanelProps) => {
             </div>
 
             <div className="flex-1 overflow-hidden flex flex-col">
-                <div className="p-10 overflow-y-auto flex-1 space-y-12 scroll-area" ref={scrollRef}>
+                <div className="p-10 overflow-y-auto flex-1 min-h-0 space-y-12 scroll-area" ref={scrollRef}>
                     {/* SUMMARY SECTION */}
                     <div className="space-y-8 animate-fade-in shadow-sm">
                         <div className="relative">
@@ -146,55 +146,62 @@ const DetailPanel = ({ node, entities, slug, onExpand }: DetailPanelProps) => {
                         </div>
                     </div>
 
-                    {/* EXPLORE SECTION */}
-                    <div className="space-y-10 pt-4">
+                    {/* PERSPECTIVES SECTION */}
+                    <div className="space-y-8 animate-fade-in shadow-sm">
                         <div className="relative">
                             <h2 className="text-xl font-black text-white uppercase tracking-[0.2em] mb-3 flex items-center gap-4">
                                 <span className="w-2 h-2 bg-sky-500 rounded-full shadow-[0_0_15px_rgba(14,165,233,1)]"></span>
-                                Resonance Angles
+                                Resonance Perspectives
                             </h2>
                             <div className="h-[1px] w-full bg-gradient-to-r from-sky-500/40 via-transparent to-transparent mb-8"></div>
                         </div>
-
-                        <div className="grid grid-cols-1 gap-4">
-                            {suggestions.map((s, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => handleExplore(s)}
-                                    className="group relative flex items-start gap-6 p-6 bg-slate-800/20 border border-white/5 rounded-2xl hover:bg-sky-500/[0.03] hover:border-sky-500/30 transition-all duration-500 text-left active:scale-[0.98]"
-                                >
-                                    <div className="mt-1.5 w-5 h-5 rounded-full border border-sky-500/30 flex items-center justify-center flex-shrink-0 group-hover:border-sky-500 transition-colors">
-                                        <div className="w-1.5 h-1.5 bg-sky-500 rounded-full scale-0 group-hover:scale-100 transition-transform"></div>
+                        <div className="glass-card p-10 bg-white/[0.01] hover:bg-white/[0.02] border-sky-500/10 transition-all duration-500 group">
+                            <div className="grid grid-cols-1 gap-6">
+                                {suggestions.map((s, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => handleExplore(s)}
+                                        className="group relative flex items-start gap-6 p-5 bg-slate-900/40 border border-white/5 rounded-2xl hover:bg-sky-500/[0.05] hover:border-sky-500/40 transition-all duration-500 text-left active:scale-[0.98]"
+                                    >
+                                        <div className="mt-1.5 w-4 h-4 rounded-full border border-sky-500/30 flex items-center justify-center flex-shrink-0 group-hover:border-sky-500 transition-colors">
+                                            <div className="w-1 h-1 bg-sky-500 rounded-full scale-0 group-hover:scale-100 transition-transform"></div>
+                                        </div>
+                                        <span className="text-[13px] font-bold text-slate-300 group-hover:text-white transition-colors leading-relaxed">
+                                            {s}
+                                        </span>
+                                    </button>
+                                ))}
+                                {suggestions.length === 0 && (
+                                    <div className="text-[11px] text-slate-500 font-medium italic py-4">
+                                        Synthesizing research angles...
                                     </div>
-                                    <span className="text-[13px] font-bold text-slate-300 group-hover:text-white transition-colors leading-relaxed">
-                                        {s}
-                                    </span>
-                                </button>
-                            ))}
+                                )}
+                            </div>
                         </div>
+                    </div>
 
-                        <div className="space-y-6 pr-2">
-                            {messages.map((m, i) => (
-                                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
-                                    <div className={`max-w-[85%] px-6 py-4 rounded-[2rem] text-[13px] leading-relaxed shadow-xl ${m.role === 'user'
-                                        ? 'bg-gradient-to-br from-indigo-600/40 to-indigo-700/40 text-indigo-50 border border-indigo-400/20 rounded-tr-none'
-                                        : 'bg-white/[0.03] text-slate-200 border border-white/5 rounded-tl-none'
-                                        }`}>
-                                        {m.content}
-                                    </div>
+                    {/* DISCOVERY STREAM (MESSAGES) */}
+                    <div className="space-y-6 pr-2">
+                        {messages.map((m, i) => (
+                            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+                                <div className={`max-w-[85%] px-6 py-4 rounded-[2rem] text-[13px] leading-relaxed shadow-xl ${m.role === 'user'
+                                    ? 'bg-gradient-to-br from-indigo-600/40 to-indigo-700/40 text-indigo-50 border border-indigo-400/20 rounded-tr-none'
+                                    : 'bg-white/[0.03] text-slate-200 border border-white/5 rounded-tl-none'
+                                    }`}>
+                                    {m.content}
                                 </div>
-                            ))}
-                            {isExploring && (
-                                <div className="text-[10px] text-sky-400 font-black uppercase tracking-widest flex items-center gap-4 animate-pulse px-2">
-                                    <div className="flex gap-1.5">
-                                        <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce"></div>
-                                        <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                        <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                    </div>
-                                    Synthesizing Knowledge...
+                            </div>
+                        ))}
+                        {isExploring && (
+                            <div className="text-[10px] text-sky-400 font-black uppercase tracking-widest flex items-center gap-4 animate-pulse px-2">
+                                <div className="flex gap-1.5">
+                                    <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce"></div>
+                                    <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                    <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                                 </div>
-                            )}
-                        </div>
+                                Synthesizing Knowledge...
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -250,9 +257,26 @@ export default function CerebroDashboard() {
     const [projectSearch, setProjectSearch] = useState('');
     const [feedSearch, setFeedSearch] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-
+    const [pan, setPan] = useState({ x: 0, y: 0 });
+    const [isPanning, setIsPanning] = useState(false);
+    const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
     const svgRef = useRef<SVGSVGElement>(null);
     const mainRef = useRef<HTMLElement>(null);
+
+    // Track dimensions for centering
+    useEffect(() => {
+        const update = () => {
+            if (mainRef.current) {
+                setDimensions({
+                    width: mainRef.current.clientWidth,
+                    height: mainRef.current.clientHeight
+                });
+            }
+        };
+        update();
+        window.addEventListener('resize', update);
+        return () => window.removeEventListener('resize', update);
+    }, []);
 
     const mediaRecorder = useRef<MediaRecorder | null>(null);
     const audioChunks = useRef<Blob[]>([]);
@@ -420,14 +444,12 @@ export default function CerebroDashboard() {
         return () => clearInterval(interval);
     }, [activeSlug]); // Removed draggingNodeId to prevent flashing on selection/drag start
 
-    const center = { x: 400, y: 300 };
+    const center = { x: dimensions.width / 2, y: dimensions.height / 2 };
 
     const getDisplayPos = (node: GraphNode) => {
-        const dx = node.x - center.x;
-        const dy = node.y - center.y;
         return {
-            x: center.x + dx * zoom,
-            y: center.y + dy * zoom
+            x: node.x,
+            y: node.y
         };
     };
 
@@ -489,10 +511,13 @@ export default function CerebroDashboard() {
     const handleBackgroundMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
         clearSelection();
+        setIsPanning(true);
+        dragStartRef.current = { x: e.clientX, y: e.clientY };
     };
 
     const startNodeDrag = (e: React.MouseEvent, nodeId: string) => {
         e.stopPropagation();
+        setIsPanning(false); // Disable panning when starting node drag
         const nodeIsSelected = selectedNodeIds.has(nodeId);
         const baseSelection = nodeIsSelected && selectedNodeIds.size > 1
             ? new Set(selectedNodeIds)
@@ -512,10 +537,22 @@ export default function CerebroDashboard() {
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!draggingNodeId || !dragStartRef.current) return;
+        if (!dragStartRef.current) return;
 
         const dxScreen = e.clientX - dragStartRef.current.x;
         const dyScreen = e.clientY - dragStartRef.current.y;
+
+        if (isPanning) {
+            setPan(prev => ({
+                x: prev.x + dxScreen,
+                y: prev.y + dyScreen
+            }));
+            dragStartRef.current = { x: e.clientX, y: e.clientY };
+            return;
+        }
+
+        if (!draggingNodeId) return;
+
         const dx = dxScreen / zoom;
         const dy = dyScreen / zoom;
 
@@ -549,6 +586,7 @@ export default function CerebroDashboard() {
         }
 
         setDraggingNodeId(null);
+        setIsPanning(false);
         draggingNodesRef.current.clear();
         dragStartRef.current = null;
         dragStartPositions.current.clear();
@@ -561,6 +599,7 @@ export default function CerebroDashboard() {
 
         fetch(`${API_BASE}/project/${slug}/create`, {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: topic, topic })
         }).then(res => {
             if (res.ok) {
@@ -782,24 +821,29 @@ export default function CerebroDashboard() {
             <main
                 ref={mainRef}
                 className="graph-container bg-gradient-to-br from-[#0a0a14] to-[#0d0d1a] shadow-2xl"
-                style={{ position: 'relative' }}
-                onMouseDown={handleBackgroundMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
                 onWheel={(e) => {
-                    e.preventDefault();
                     const delta = -e.deltaY * 0.001;
                     handleZoomChange(zoom + delta);
                 }}
             >
-                <svg ref={svgRef} width="100%" height="100%" viewBox="0 0 800 600">
+                <svg
+                    ref={svgRef}
+                    width="100%"
+                    height="100%"
+                    className="w-full h-full cursor-grab active:cursor-grabbing overflow-visible"
+                    onMouseDown={handleBackgroundMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                >
                     <defs>
                         <radialGradient id="nodeGradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
                             <stop offset="0%" stopColor="var(--accent-primary)" stopOpacity="0.4" />
                             <stop offset="100%" stopColor="var(--accent-primary)" stopOpacity="0" />
                         </radialGradient>
                     </defs>
+
+                    <g transform={`translate(${center.x + pan.x}, ${center.y + pan.y}) scale(${zoom}) translate(-400, -300)`}>
 
                     {!isLoading && relationships.map((rel) => {
                         const source = nodes.find(n => n.id === rel.source);
@@ -817,7 +861,7 @@ export default function CerebroDashboard() {
                                 x2={p2.x} y2={p2.y}
                                 className={`edge ${isEdgeHighlighted ? 'highlighted' : ''}`}
                                 style={{ 
-                                    strokeWidth: (isEdgeHighlighted ? 2.5 : 1.5) * zoom,
+                                    strokeWidth: isEdgeHighlighted ? 2.5 : 1.5,
                                     stroke: isEdgeHighlighted ? 'var(--accent-primary)' : undefined,
                                     opacity: isEdgeHighlighted ? 0.6 : 0.15,
                                     transition: 'all 0.3s ease-out'
@@ -829,7 +873,7 @@ export default function CerebroDashboard() {
                     {!isLoading && nodes.map((n) => {
                         const display = getDisplayPos(n);
                         const baseRadius = getNodeRadius(n.id);
-                        const radius = baseRadius * zoom; // Real zoom scaling
+                        const radius = baseRadius; // Scaling handled by g transform
                         const isSelected = selectedNodeIds.has(n.id) || selectedNodeId === n.id;
 
                         return (
@@ -866,15 +910,15 @@ export default function CerebroDashboard() {
                                 />
 
                                 <text
-                                    dy={-radius - (12 * zoom)}
+                                    dy={-radius - 12}
                                     textAnchor="middle"
                                     className="node-label"
                                     style={{ 
                                         pointerEvents: 'none',
-                                        fontSize: `${Math.max(8, baseRadius * 0.9 * zoom)}px`,
+                                        fontSize: `${Math.max(8, baseRadius * 0.9)}px`,
                                         paintOrder: 'stroke',
                                         stroke: 'rgba(0,0,0,0.8)',
-                                        strokeWidth: `${2 * zoom}px`,
+                                        strokeWidth: '2px',
                                         strokeLinecap: 'round',
                                         strokeLinejoin: 'round',
                                         transition: 'all 0.3s ease-out'
@@ -884,23 +928,23 @@ export default function CerebroDashboard() {
                                 </text>
 
                                 {isSelected && (
-                                    <g className="node-controls active" transform={`translate(${radius + (12 * zoom)}, ${-12 * zoom})`}>
+                                    <g className="node-controls active" transform={`translate(${radius + 12}, -12)`}>
                                         <g
                                             className="control-btn drag-btn group cursor-move"
                                             onMouseDown={(e) => startNodeDrag(e, n.id)}
                                         >
-                                            <circle r={14 * Math.sqrt(zoom)} fill="rgba(15,23,42,0.95)" stroke="rgba(255,255,255,0.15)" className="shadow-premium" />
-                                            <text x="0" y={4 * Math.sqrt(zoom)} textAnchor="middle" fontSize={12 * Math.sqrt(zoom)} fill="var(--accent-primary)" style={{ pointerEvents: 'none' }}>✥</text>
+                                            <circle r={14} fill="rgba(15,23,42,0.95)" stroke="rgba(255,255,255,0.15)" className="shadow-premium" />
+                                            <text x="0" y={4} textAnchor="middle" fontSize={12} fill="var(--accent-primary)" style={{ pointerEvents: 'none' }}>✥</text>
                                         </g>
 
                                         {n.id !== 'root' && (
                                             <g
                                                 className="control-btn delete-btn group cursor-pointer"
                                                 onClick={(e) => requestDeleteNodes([n.id], e)}
-                                                transform={`translate(0, ${36 * Math.sqrt(zoom)})`}
+                                                transform="translate(0, 36)"
                                             >
-                                                <circle r={14 * Math.sqrt(zoom)} fill="rgba(15,23,42,0.95)" stroke="rgba(255,100,100,0.2)" className="shadow-premium" />
-                                                <text x="0" y={4 * Math.sqrt(zoom)} textAnchor="middle" fontSize={12 * Math.sqrt(zoom)} fill="var(--danger)" style={{ pointerEvents: 'none' }}>✕</text>
+                                                <circle r={14} fill="rgba(15,23,42,0.95)" stroke="rgba(255,100,100,0.2)" className="shadow-premium" />
+                                                <text x="0" y={4} textAnchor="middle" fontSize={12} fill="var(--danger)" style={{ pointerEvents: 'none' }}>✕</text>
                                             </g>
                                         )}
                                     </g>
@@ -908,7 +952,7 @@ export default function CerebroDashboard() {
                             </g>
                         );
                     })}
-
+                    </g>
                 </svg>
                 
                 {deleteConfirm && (
@@ -1003,15 +1047,13 @@ export default function CerebroDashboard() {
                 </div>
             </main>
 
-            <aside className="glass border-l border-white/5">
-                <div className="h-full">
-                    <DetailPanel
-                        node={selectedNode}
-                        entities={entities}
-                        slug={activeSlug}
-                        onExpand={handleExpandResearch}
-                    />
-                </div>
+            <aside className="detail-panel">
+                <DetailPanel
+                    node={selectedNode}
+                    entities={entities}
+                    slug={activeSlug}
+                    onExpand={handleExpandResearch}
+                />
             </aside>
         </div>
     );
