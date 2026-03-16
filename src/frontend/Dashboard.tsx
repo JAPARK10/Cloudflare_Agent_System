@@ -720,7 +720,7 @@ export default function CerebroDashboard() {
     return (
         <div className="dashboard">
             <div className="left-column">                <aside className="panel archive-container glass animate-fade-in">
-                    <div className="panel-header py-8 px-8">
+                    <div className="panel-header py-6 px-8">
                         <div className="flex flex-col">
                             <span className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.4em] mb-1">Vault</span>
                             <span className="panel-title text-2xl tracking-tighter" style={{ fontFamily: 'var(--font-heading)' }}>Archive</span>
@@ -765,7 +765,7 @@ export default function CerebroDashboard() {
                 </aside>
 
                 <aside className="panel feed-container glass animate-fade-in [animation-delay:0.1s]">
-                    <div className="panel-header py-8 px-8">
+                    <div className="panel-header py-6 px-8">
                         <div className="flex flex-col">
                             <span className="text-[9px] font-black text-sky-400 uppercase tracking-[0.4em] mb-1">Streams</span>
                             <span className="panel-title text-2xl tracking-tighter" style={{ fontFamily: 'var(--font-heading)' }}>Knowledge Feed</span>
@@ -791,7 +791,7 @@ export default function CerebroDashboard() {
                             </div>
                         ))}
                     </div>
-                    <div className="p-8 border-t border-white/5 bg-white/[0.01]">
+                    <div className="py-5 px-8 border-t border-white/5 bg-white/[0.01]">
                         <button
                             onClick={isRecording ? stopRecording : startRecording}
                             className={`btn-voice-insight ${isRecording ? 'recording' : ''}`}

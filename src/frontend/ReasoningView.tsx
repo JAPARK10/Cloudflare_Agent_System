@@ -78,36 +78,45 @@ const ReasoningView: React.FC<ReasoningViewProps> = ({ activeSlug, onBack }) => 
                                 <div className="absolute left-[31px] top-16 bottom-[-64px] w-[2px] bg-gradient-to-b from-indigo-500/40 to-transparent"></div>
                             )}
 
-                            <div className={`glass-card relative border-l-4 ${trace.step.includes('failure') ? 'border-l-red-500 hover:border-l-red-400' : 'border-l-indigo-500 hover:border-l-indigo-400'}`}>
-                                <div className="trace-meta flex items-center justify-between mb-10 pb-6 border-b border-white/5">
-                                    <div className="flex items-center gap-6">
-                                        <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 font-mono text-sm font-bold shadow-xl">
-                                            {String(i + 1).padStart(2, '0')}
+                            <div className="space-y-6">
+                                {/* METADATA FRAME */}
+                                <div className={`glass-card relative border-l-4 ${trace.step.includes('failure') ? 'border-l-red-500 hover:border-l-red-400' : 'border-l-indigo-500 hover:border-l-indigo-400'} p-8`}>
+                                    <div className="trace-meta flex items-center justify-between">
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 font-mono text-sm font-bold shadow-xl">
+                                                {String(i + 1).padStart(2, '0')}
+                                            </div>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Process Stage</span>
+                                                <span className="text-lg font-bold text-white tracking-widest">{trace.step.replace(/_/g, ' ').toUpperCase()}</span>
+                                            </div>
                                         </div>
-                                        <div className="flex flex-col gap-1">
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Process Stage</span>
-                                            <span className="text-lg font-bold text-white tracking-widest">{trace.step.replace(/_/g, ' ').toUpperCase()}</span>
+                                        <div className="flex flex-col items-end gap-2">
+                                            <span className="text-[10px] font-mono text-slate-500 font-bold bg-white/5 px-4 py-1.5 rounded-lg">{new Date(trace.timestamp).toLocaleTimeString()}</span>
+                                            {trace.details.attempt && (
+                                                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/5 px-3 py-1 rounded border border-indigo-500/10">Attempt #{trace.details.attempt}</span>
+                                            )}
                                         </div>
                                     </div>
-                                    <span className="text-[10px] font-mono text-slate-500 font-bold bg-white/5 px-4 py-2 rounded-lg">{new Date(trace.timestamp).toLocaleTimeString()}</span>
                                 </div>
 
-                                <div className="trace-details space-y-10">
+                                {/* DETAIL FRAMES */}
+                                <div className="ml-24 space-y-6">
                                     {trace.details.prompt && (
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em] flex items-center gap-3">
+                                        <div className="glass-card p-8 border border-white/5 bg-white/[0.01] hover:bg-white/[0.02]">
+                                            <label className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.4em] flex items-center gap-3 mb-6">
                                                 <div className="w-1 h-3 bg-indigo-500 rounded-full"></div>
                                                 System Directives
                                             </label>
-                                            <div className="bg-black/40 border border-white/5 p-8 rounded-2xl font-mono text-[11px] leading-relaxed text-slate-300 shadow-inner overflow-x-auto">
+                                            <div className="bg-black/40 border border-white/5 p-8 rounded-2xl font-mono text-[11px] leading-relaxed text-slate-300 shadow-inner overflow-x-auto whitespace-pre-wrap">
                                                 {trace.details.prompt}
                                             </div>
                                         </div>
                                     )}
 
                                     {trace.details.input && (
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-black text-sky-400 uppercase tracking-[0.3em] flex items-center gap-3">
+                                        <div className="glass-card p-8 border border-white/5 bg-sky-500/[0.005] hover:bg-sky-500/[0.01]">
+                                            <label className="text-[10px] font-black text-sky-400 uppercase tracking-[0.4em] flex items-center gap-3 mb-6">
                                                 <div className="w-1 h-3 bg-sky-500 rounded-full"></div>
                                                 Ingested Knowledge
                                             </label>
@@ -118,8 +127,8 @@ const ReasoningView: React.FC<ReasoningViewProps> = ({ activeSlug, onBack }) => 
                                     )}
 
                                     {trace.details.output && (
-                                        <div className="space-y-4">
-                                            <label className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.3em] flex items-center gap-3">
+                                        <div className="glass-card p-8 border border-emerald-500/10 bg-emerald-500/[0.01] hover:bg-emerald-500/[0.02]">
+                                            <label className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.4em] flex items-center gap-3 mb-6">
                                                 <div className="w-1 h-3 bg-emerald-500 rounded-full"></div>
                                                 Synthesized Insight
                                             </label>
@@ -130,16 +139,9 @@ const ReasoningView: React.FC<ReasoningViewProps> = ({ activeSlug, onBack }) => 
                                     )}
 
                                     {trace.details.error && (
-                                        <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl">
-                                            <label className="text-[10px] font-black text-red-400 uppercase tracking-[0.3em] mb-4 block">Neural Friction Detected</label>
-                                            <div className="text-red-100 font-medium text-[13px] leading-relaxed">{trace.details.error}</div>
-                                        </div>
-                                    )}
-
-                                    {trace.details.attempt && (
-                                        <div className="inline-flex items-center gap-4 bg-white/5 border border-white/10 px-4 py-2 rounded-lg">
-                                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Iterative Attempt</span>
-                                            <span className="text-xs font-bold text-white font-mono">#{trace.details.attempt}</span>
+                                        <div className="glass-card p-8 border border-red-500/20 bg-red-500/[0.02] hover:bg-red-500/[0.03]">
+                                            <label className="text-[10px] font-black text-red-400 uppercase tracking-[0.4em] mb-6 block">Neural Friction Detected</label>
+                                            <div className="text-red-100 font-medium text-[13px] leading-relaxed bg-red-500/5 p-6 rounded-xl border border-red-500/10">{trace.details.error}</div>
                                         </div>
                                     )}
                                 </div>
@@ -157,7 +159,12 @@ const ReasoningView: React.FC<ReasoningViewProps> = ({ activeSlug, onBack }) => 
                     color: #f8fafc;
                 }
                 /* Hide global container padding/overflow if needed */
-                body { background: #050510 !important; }
+                body { 
+                    background: #050510 !important; 
+                    overflow-y: auto !important; 
+                    height: auto !important; 
+                    min-height: 100vh !important;
+                }
             `}} />
         </div>
     );
