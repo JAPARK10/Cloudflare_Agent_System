@@ -344,16 +344,50 @@ export class CerebroAgent extends Agent<Env, ResearchProjectState> {
 
         if (!entity) return { suggestions: ["No context available for this node."] };
 
-        const prompt = `You are Cerebro, an AI research assistant. Create a short list (2-3 items) of thoughtful, concise exploration prompts for the topic "${entity.label}".\n\nContext: ${entity.summary}\n\nRules:\n1) Output must be a JSON array of strings, exactly 2-3 items.\n2) Each item should be 1-2 sentences max.\n3) Do not include any extra text (no explanation, no bullet formatting, only JSON array).`;
+        const systemPrompt = `You are Cerebro, a high-fidelity intelligence synthesis engine.
+Your task is to analyze the node "${entity.label}" and provide 2-5 "Resonance Angles".
 
-        const response = await this.env.AI.run('@cf/meta/llama-3-8b-instruct', {
-            messages: [{ role: 'system', content: prompt }],
-            response_format: { type: 'json_array' }
-        });
+Resonance Angles are high-impact research perspectives or "different ways of looking at this topic" that the user should explore next.
 
-        // @ts-ignore
-        const suggestions = Array.isArray(response.response) ? response.response : [String(response.response)];
-        return { suggestions: suggestions.slice(0, 3) };
+Node Summary: ${entity.summary}
+
+RULES:
+1. Provide exactly 2-5 angles.
+2. Each angle should be a concise, provocative research prompt (1 sentence).
+3. Output MUST be a valid JSON object with a single key "suggestions" containing an array of strings.
+4. DO NOT include any text before or after the JSON.`;
+
+        const executeLlm = async (prompt: string, attempt: number) => {
+            console.log(`Resonance Angles Attempt ${attempt}...`);
+            const response = await this.env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: attempt > 1 ? "Your previous response was not valid JSON. Please return ONLY the JSON object now." : "Generate resonance angles." }
+                ],
+                response_format: { type: 'json_object' }
+            });
+            // @ts-ignore
+            return response.response;
+        };
+
+        let resultText = '';
+        try {
+            resultText = await executeLlm(systemPrompt, 1);
+            let data: any;
+            try {
+                data = JSON.parse(resultText);
+            } catch (e) {
+                console.warn("Attempt 1 failed JSON parse, retrying...");
+                resultText = await executeLlm(systemPrompt, 2);
+                data = JSON.parse(resultText);
+            }
+
+            const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [String(data.suggestions)];
+            return { suggestions: suggestions.slice(0, 5) };
+        } catch (e) {
+            console.error("Resonance engine failed after retries", e, resultText);
+            return { suggestions: ["Explore alternative systemic implications", "Analyze cross-domain resonance points", "Synthesize emerging patterns"] };
+        }
     }
 
     private async generateEmbedding(text: string): Promise<number[]> {

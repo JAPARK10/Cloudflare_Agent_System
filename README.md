@@ -29,21 +29,60 @@ A critical mechanism in the `DeepDiveWorkflow` is its ability to handle unstable
 ### 3. Hierarchical Knowledge Mapping
 The system automatically links new discoveries back to "anchor" or "seed" nodes, maintaining a coherent structural hierarchy even as the research expands into wildly different sub-topics.
 
+## Getting Started
+
+### Prerequisites
+
+- **Node.js**: Version 18 or higher.
+- **Cloudflare Account**: [Sign up here](https://dash.cloudflare.com/sign-up) if you don't have one.
+- **npm**: Standard Node package manager.
+
+### Cloudflare Setup & Authentication
+
+Before running the system, you must authenticate with Cloudflare and initialize the required services.
+
+1.  **Login to Wrangler**:
+    ```bash
+    npx wrangler login
+    ```
+
+2.  **Create Vectorize Index**:
+    Cerebro uses Vectorize for semantic intelligence. Create the index using the following command:
+    ```bash
+    npx wrangler vectorize create knowledge-graph-index --dimensions 1024 --metric cosine
+    ```
+
+3.  **Apply SQLite Migrations**:
+    The system uses Durable Objects with SQLite storage. Initialize the database schema:
+    ```bash
+    npx wrangler migrations apply cerebro-ai
+    ```
+
 ## Development
 
 To run the project locally, you will need two terminal sessions:
 
 ```bash
-# Terminal 1: Backend
+# Terminal 1: Backend (Worker & Agents)
 npm run dev
 
-# Terminal 2: Frontend
+# Terminal 2: Frontend (Vite)
 npm run frontend
 ```
 
-After starting both, navigate to the local URL provided by the frontend terminal to access the dashboard.
+After starting both, navigate to `http://localhost:5173` (or the URL provided by the frontend terminal) to access the dashboard.
+
+## Deployment
+
+Deploying to the Cloudflare global network is a single command:
 
 ```bash
-# Deploy to Cloudflare
 npm run deploy
 ```
+
+---
+
+## Repository Safety Note
+This repository is configured for public release. 
+- **No Hardcoded Secrets**: All sensitive configurations are handled via environment variables or secret bindings.
+- **Ignored Sensitive Files**: `.env`, `.dev.vars`, and other local configuration files are explicitly ignored by Git.

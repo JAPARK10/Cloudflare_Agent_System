@@ -10,7 +10,7 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
         const expansion = await step.do('expand-topic', async () => {
             console.log(`Step 1: Expanding topic "${topic}"`);
             const notes = event.payload.notes?.join('\n') || '';
-            const systemPrompt = `You are a research strategist. Break down a complex topic into 3 specific, distinct research sub-tasks. 
+            const systemPrompt = `You are a research strategist. Break down a complex topic into a maximum of 4 specific, distinct research sub-tasks. 
             CONTEXT FROM USER VOICE NOTES:
             ${notes}
             
@@ -50,6 +50,7 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
 
             for (let i = 0; i < maxRetries; i++) {
                 const systemPrompt = `Extract key entities and relationships.
+                STRICT LIMIT: Extract a maximum of 4 high-priority entities.
                 EXISTING ENTITIES (Do NOT duplicate these concepts): ${existingEntities}
                 
                 STRICT RULES:
@@ -61,7 +62,7 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
                 JSON Format:
                 { 
                   "entities": [{"id": "string", "label": "string", "type": "concept|person|place|event", "summary": "string"}], 
-                  "relationships": [{"source": "string", "target": "string", "type": "string"}] 
+                   "relationships": [{"source": "string", "target": "string", "type": "string"}] 
                 }`;
 
                 let retryPrompt = i > 0
@@ -91,6 +92,13 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
                     if (!parsed.entities || !Array.isArray(parsed.entities)) {
                         throw new Error("Missing 'entities' array in response");
                     }
+
+                    // Strict limit enforcement: slice to 4 nodes
+                    parsed.entities = (parsed.entities || []).slice(0, 4);
+                    parsed.relationships = (parsed.relationships || []).filter((rel: Relationship) => 
+                        parsed.entities.some((e: Entity) => e.id === rel.source || e.id === rel.target) || 
+                        rel.source === 'root' || rel.target === 'root'
+                    );
 
                     // Log successful or final trace
                     const agentId = this.env.RESEARCH_AGENT.idFromName(agentName);

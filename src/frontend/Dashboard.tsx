@@ -131,31 +131,44 @@ const DetailPanel = ({ node, entities, slug, onExpand }: DetailPanelProps) => {
             <div className="flex-1 overflow-hidden flex flex-col">
                 <div className="p-10 overflow-y-auto flex-1 space-y-12 scroll-area" ref={scrollRef}>
                     {/* SUMMARY SECTION */}
-                    <div className="glass-card">
-                        <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-4">
-                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.8)]"></span>
-                            Core Analysis
+                    <div className="space-y-8 animate-fade-in shadow-sm">
+                        <div className="relative">
+                            <h2 className="text-xl font-black text-white uppercase tracking-[0.2em] mb-3 flex items-center gap-4">
+                                <span className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_15px_rgba(99,102,241,1)]"></span>
+                                Core Analysis
+                            </h2>
+                            <div className="h-[1px] w-full bg-gradient-to-r from-indigo-500/40 via-transparent to-transparent mb-8"></div>
                         </div>
-                        <div className="text-[14px] text-slate-200 leading-[1.8] font-medium tracking-wide">
-                            {entity?.summary || "Synthesizing intelligence summary..."}
+                        <div className="glass-card p-10 bg-white/[0.01] hover:bg-white/[0.02] border-indigo-500/10 transition-all duration-500 group">
+                            <div className="text-[15px] text-slate-200 leading-[1.8] font-medium tracking-wide first-letter:text-3xl first-letter:font-black first-letter:text-indigo-400 first-letter:mr-1">
+                                {entity?.summary || "Synthesizing intelligence summary..."}
+                            </div>
                         </div>
                     </div>
 
                     {/* EXPLORE SECTION */}
-                    <div className="space-y-10">
-                        <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-4">
-                            <span className="w-1.5 h-1.5 bg-sky-500 rounded-full shadow-[0_0_10px_rgba(14,165,233,0.8)]"></span>
-                            Resonance Points
+                    <div className="space-y-10 pt-4">
+                        <div className="relative">
+                            <h2 className="text-xl font-black text-white uppercase tracking-[0.2em] mb-3 flex items-center gap-4">
+                                <span className="w-2 h-2 bg-sky-500 rounded-full shadow-[0_0_15px_rgba(14,165,233,1)]"></span>
+                                Resonance Angles
+                            </h2>
+                            <div className="h-[1px] w-full bg-gradient-to-r from-sky-500/40 via-transparent to-transparent mb-8"></div>
                         </div>
 
-                        <div className="flex flex-wrap gap-3">
+                        <div className="grid grid-cols-1 gap-4">
                             {suggestions.map((s, i) => (
                                 <button
                                     key={i}
                                     onClick={() => handleExplore(s)}
-                                    className="px-5 py-2.5 bg-indigo-500/5 border border-white/5 text-[11px] font-bold text-slate-300 rounded-full hover:bg-indigo-500/10 hover:text-white hover:border-indigo-500/40 transition-all duration-300 shadow-sm active:scale-95"
+                                    className="group relative flex items-start gap-6 p-6 bg-slate-800/20 border border-white/5 rounded-2xl hover:bg-sky-500/[0.03] hover:border-sky-500/30 transition-all duration-500 text-left active:scale-[0.98]"
                                 >
-                                    {s}
+                                    <div className="mt-1.5 w-5 h-5 rounded-full border border-sky-500/30 flex items-center justify-center flex-shrink-0 group-hover:border-sky-500 transition-colors">
+                                        <div className="w-1.5 h-1.5 bg-sky-500 rounded-full scale-0 group-hover:scale-100 transition-transform"></div>
+                                    </div>
+                                    <span className="text-[13px] font-bold text-slate-300 group-hover:text-white transition-colors leading-relaxed">
+                                        {s}
+                                    </span>
                                 </button>
                             ))}
                         </div>
@@ -230,7 +243,6 @@ export default function CerebroDashboard() {
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
     const [zoom, setZoom] = useState(1);
-    const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<{ x: number; y: number; nodeIds: string[] } | null>(null);
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [entities, setEntities] = useState<Entity[]>([]);
@@ -240,6 +252,7 @@ export default function CerebroDashboard() {
     const [isLoading, setIsLoading] = useState(false);
 
     const svgRef = useRef<SVGSVGElement>(null);
+    const mainRef = useRef<HTMLElement>(null);
 
     const mediaRecorder = useRef<MediaRecorder | null>(null);
     const audioChunks = useRef<Blob[]>([]);
@@ -248,9 +261,8 @@ export default function CerebroDashboard() {
     const draggingNodesRef = useRef<Set<string>>(new Set());
     const dragStartRef = useRef<{ x: number; y: number } | null>(null);
     const dragStartPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
-    const selectionStartRef = useRef<{ x: number; y: number } | null>(null);
 
-    const clampZoom = (value: number) => Math.min(2.5, Math.max(0.5, value));
+    const clampZoom = (value: number) => Math.min(5.0, Math.max(0.5, value));
     const handleZoomChange = (newZoom: number) => setZoom(clampZoom(newZoom));
 
     const clearSelection = () => {
@@ -376,11 +388,6 @@ export default function CerebroDashboard() {
                         };
                     });
 
-                    // Default selection to root if nothing selected
-                    if (!selectedNodeId && newNodes.find(n => n.id === 'root')) {
-                        setSelectedNodeId('root');
-                    }
-
                     return newNodes;
                 });
             }
@@ -390,6 +397,17 @@ export default function CerebroDashboard() {
             if (showLoading) setIsLoading(false);
         }
     };
+
+    // Correct Initial Selection Logic: ONLY if nothing is selected yet
+    useEffect(() => {
+        if (!selectedNodeId && nodes.length > 0) {
+            const root = nodes.find(n => n.id === 'root');
+            if (root) {
+                setSelectedNodeId('root');
+                setSelectedNodeIds(new Set(['root']));
+            }
+        }
+    }, [nodes.length, activeSlug]);
 
     useEffect(() => {
         if (!activeSlug) return;
@@ -464,17 +482,6 @@ export default function CerebroDashboard() {
 
     const handleNodeClick = (nodeId: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (e.ctrlKey || e.metaKey) {
-            setSelectedNodeIds(prev => {
-                const next = new Set(prev);
-                if (next.has(nodeId)) next.delete(nodeId);
-                else next.add(nodeId);
-                return next;
-            });
-            setSelectedNodeId(nodeId);
-            return;
-        }
-
         setSelectedNodeId(nodeId);
         setSelectedNodeIds(new Set([nodeId]));
     };
@@ -482,15 +489,6 @@ export default function CerebroDashboard() {
     const handleBackgroundMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
         clearSelection();
-        const svgRect = svgRef.current?.getBoundingClientRect();
-        if (svgRect) {
-            const scaleX = 800 / svgRect.width;
-            const scaleY = 600 / svgRect.height;
-            const svgX = (e.clientX - svgRect.left) * scaleX / zoom;
-            const svgY = (e.clientY - svgRect.top) * scaleY / zoom;
-            selectionStartRef.current = { x: svgX, y: svgY };
-            setSelectionRect({ x: svgX, y: svgY, width: 0, height: 0 });
-        }
     };
 
     const startNodeDrag = (e: React.MouseEvent, nodeId: string) => {
@@ -514,24 +512,6 @@ export default function CerebroDashboard() {
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        // Selection rectangle
-        if (selectionStartRef.current) {
-            const start = selectionStartRef.current;
-            const svgRect = svgRef.current?.getBoundingClientRect();
-            if (svgRect) {
-                const scaleX = 800 / svgRect.width;
-                const scaleY = 600 / svgRect.height;
-                const currentX = (e.clientX - svgRect.left) * scaleX / zoom;
-                const currentY = (e.clientY - svgRect.top) * scaleY / zoom;
-                const x = Math.min(start.x, currentX);
-                const y = Math.min(start.y, currentY);
-                const w = Math.abs(currentX - start.x);
-                const h = Math.abs(currentY - start.y);
-                setSelectionRect({ x, y, width: w, height: h });
-            }
-            return;
-        }
-
         if (!draggingNodeId || !dragStartRef.current) return;
 
         const dxScreen = e.clientX - dragStartRef.current.x;
@@ -564,19 +544,6 @@ export default function CerebroDashboard() {
     };
 
     const handleMouseUp = async () => {
-        if (selectionRect) {
-            const rect = selectionRect;
-            const selected = nodes.filter(n => {
-                const coords = getDisplayPos(n);
-                return coords.x >= rect.x && coords.x <= rect.x + rect.width
-                    && coords.y >= rect.y && coords.y <= rect.y + rect.height;
-            }).map(n => n.id);
-            setSelectedNodeIds(new Set(selected));
-            setSelectedNodeId(selected[0] || null);
-            setSelectionRect(null);
-            selectionStartRef.current = null;
-        }
-
         if (draggingNodeId) {
             await persistNodePositions(nodes);
         }
@@ -626,8 +593,17 @@ export default function CerebroDashboard() {
         }
     };
 
-    const requestDeleteNodes = (nodeIds: string[], x: number, y: number) => {
-        setDeleteConfirm({ x, y, nodeIds });
+    const requestDeleteNodes = (nodeIds: string[], e: React.MouseEvent) => {
+        const rect = mainRef.current?.getBoundingClientRect();
+        if (rect) {
+            setDeleteConfirm({ 
+                x: e.clientX - rect.left, 
+                y: e.clientY - rect.top, 
+                nodeIds 
+            });
+        } else {
+            setDeleteConfirm({ x: e.clientX, y: e.clientY, nodeIds });
+        }
     };
 
     const confirmDelete = async () => {
@@ -804,6 +780,7 @@ export default function CerebroDashboard() {
             </div>
 
             <main
+                ref={mainRef}
                 className="graph-container bg-gradient-to-br from-[#0a0a14] to-[#0d0d1a] shadow-2xl"
                 style={{ position: 'relative' }}
                 onMouseDown={handleBackgroundMouseDown}
@@ -830,19 +807,29 @@ export default function CerebroDashboard() {
                         if (!source || !target) return null;
                         const p1 = getDisplayPos(source);
                         const p2 = getDisplayPos(target);
+                        const isEdgeHighlighted = (selectedNodeId === rel.source || selectedNodeId === rel.target) || 
+                                               (selectedNodeIds.has(rel.source) || selectedNodeIds.has(rel.target));
+
                         return (
                             <line
                                 key={`${rel.source}-${rel.target}`}
                                 x1={p1.x} y1={p1.y}
                                 x2={p2.x} y2={p2.y}
-                                className="edge"
+                                className={`edge ${isEdgeHighlighted ? 'highlighted' : ''}`}
+                                style={{ 
+                                    strokeWidth: (isEdgeHighlighted ? 2.5 : 1.5) * zoom,
+                                    stroke: isEdgeHighlighted ? 'var(--accent-primary)' : undefined,
+                                    opacity: isEdgeHighlighted ? 0.6 : 0.15,
+                                    transition: 'all 0.3s ease-out'
+                                }}
                             />
                         );
                     })}
 
                     {!isLoading && nodes.map((n) => {
                         const display = getDisplayPos(n);
-                        const radius = getNodeRadius(n.id);
+                        const baseRadius = getNodeRadius(n.id);
+                        const radius = baseRadius * zoom; // Real zoom scaling
                         const isSelected = selectedNodeIds.has(n.id) || selectedNodeId === n.id;
 
                         return (
@@ -856,7 +843,7 @@ export default function CerebroDashboard() {
                                     r={radius * 2.5}
                                     fill="url(#nodeGradient)"
                                     opacity={isSelected ? 1 : 0.4}
-                                    style={{ pointerEvents: 'none' }}
+                                    style={{ pointerEvents: 'none', transition: 'r 0.3s ease-out' }}
                                 />
                                 
                                 <circle
@@ -873,45 +860,47 @@ export default function CerebroDashboard() {
                                         if (!selectedNodeIds.has(n.id)) {
                                             handleNodeClick(n.id, e);
                                         }
-                                        startNodeDrag(e, n.id);
+                                        // startNodeDrag(e, n.id); // Removed to restrict dragging to handle
                                     }}
                                     style={{ cursor: 'pointer' }}
                                 />
 
                                 <text
-                                    dy={-radius - 12}
+                                    dy={-radius - (12 * zoom)}
                                     textAnchor="middle"
                                     className="node-label"
                                     style={{ 
                                         pointerEvents: 'none',
+                                        fontSize: `${Math.max(8, baseRadius * 0.9 * zoom)}px`,
                                         paintOrder: 'stroke',
                                         stroke: 'rgba(0,0,0,0.8)',
-                                        strokeWidth: '3px',
+                                        strokeWidth: `${2 * zoom}px`,
                                         strokeLinecap: 'round',
-                                        strokeLinejoin: 'round'
+                                        strokeLinejoin: 'round',
+                                        transition: 'all 0.3s ease-out'
                                     }}
                                 >
                                     {n.label}
                                 </text>
 
                                 {isSelected && (
-                                    <g className="node-controls active" transform={`translate(${radius + 12}, -12)`}>
+                                    <g className="node-controls active" transform={`translate(${radius + (12 * zoom)}, ${-12 * zoom})`}>
                                         <g
                                             className="control-btn drag-btn group cursor-move"
                                             onMouseDown={(e) => startNodeDrag(e, n.id)}
                                         >
-                                            <circle r="14" fill="rgba(15,23,42,0.95)" stroke="rgba(255,255,255,0.15)" className="shadow-premium" />
-                                            <text x="0" y="4" textAnchor="middle" fontSize="12" fill="var(--accent-primary)" style={{ pointerEvents: 'none' }}>✥</text>
+                                            <circle r={14 * Math.sqrt(zoom)} fill="rgba(15,23,42,0.95)" stroke="rgba(255,255,255,0.15)" className="shadow-premium" />
+                                            <text x="0" y={4 * Math.sqrt(zoom)} textAnchor="middle" fontSize={12 * Math.sqrt(zoom)} fill="var(--accent-primary)" style={{ pointerEvents: 'none' }}>✥</text>
                                         </g>
 
                                         {n.id !== 'root' && (
                                             <g
                                                 className="control-btn delete-btn group cursor-pointer"
-                                                onClick={(e) => requestDeleteNodes([n.id], e.clientX, e.clientY)}
-                                                transform="translate(0, 36)"
+                                                onClick={(e) => requestDeleteNodes([n.id], e)}
+                                                transform={`translate(0, ${36 * Math.sqrt(zoom)})`}
                                             >
-                                                <circle r="14" fill="rgba(15,23,42,0.95)" stroke="rgba(255,100,100,0.2)" className="shadow-premium" />
-                                                <text x="0" y="4" textAnchor="middle" fontSize="12" fill="var(--danger)" style={{ pointerEvents: 'none' }}>✕</text>
+                                                <circle r={14 * Math.sqrt(zoom)} fill="rgba(15,23,42,0.95)" stroke="rgba(255,100,100,0.2)" className="shadow-premium" />
+                                                <text x="0" y={4 * Math.sqrt(zoom)} textAnchor="middle" fontSize={12 * Math.sqrt(zoom)} fill="var(--danger)" style={{ pointerEvents: 'none' }}>✕</text>
                                             </g>
                                         )}
                                     </g>
@@ -920,68 +909,50 @@ export default function CerebroDashboard() {
                         );
                     })}
 
-                    {selectionRect && (
-                        <rect
-                            x={selectionRect.x}
-                            y={selectionRect.y}
-                            width={selectionRect.width}
-                            height={selectionRect.height}
-                            fill="rgba(99,102,241,0.05)"
-                            stroke="rgba(99,102,241,0.4)"
-                            strokeDasharray="4,4"
-                            rx="4"
-                        />
-                    )}
                 </svg>
-
+                
                 {deleteConfirm && (
                     <div
-                        className="glass-heavy p-6 rounded-2xl animate-fade-in shadow-2xl"
+                        className="glass-heavy p-8 rounded-[2rem] animate-fade-in shadow-2xl border border-red-500/20"
                         style={{
                             position: 'absolute',
-                            left: deleteConfirm.x + 8,
-                            top: deleteConfirm.y + 8,
-                            zIndex: 60,
-                            minWidth: 240
+                            left: deleteConfirm.x + 20,
+                            top: deleteConfirm.y + 20,
+                            zIndex: 100,
+                            minWidth: 280,
+                            backdropFilter: 'blur(40px) saturate(180%)'
                         }}
                     >
-                        <div className="text-[11px] font-bold text-white mb-4 uppercase tracking-widest">
-                            Delete {deleteConfirm.nodeIds.length} target{deleteConfirm.nodeIds.length === 1 ? '' : 's'}?
-                        </div>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={confirmDelete}
-                                className="flex-1 py-2 bg-red-600/20 hover:bg-red-600 border border-red-500/30 rounded-lg text-[10px] font-bold text-red-100 transition-all uppercase tracking-widest"
-                            >
-                                Confirm
-                            </button>
-                            <button
-                                onClick={() => setDeleteConfirm(null)}
-                                className="flex-1 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[10px] font-bold text-slate-300 transition-all uppercase tracking-widest"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                )}
+                        <div className="flex flex-col gap-6">
+                            <div className="flex items-center gap-4">
+                                <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20">
+                                    <span className="text-red-400 text-sm">⚠</span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="text-[9px] font-black text-red-400 uppercase tracking-[0.3em]">Neural Interface</span>
+                                    <span className="text-[13px] font-bold text-white tracking-widest uppercase">Purge Confirmation</span>
+                                </div>
+                            </div>
+                            
+                            <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
+                                Are you certain you want to de-materialize this intelligence node and all its descending links? This action is irreversible.
+                            </p>
 
-                {selectedNodeIds.size > 1 && (
-                    <div
-                        className="glass-heavy px-4 py-2 rounded-full animate-fade-in shadow-xl flex items-center gap-4"
-                        style={{
-                            position: 'absolute',
-                            top: 24,
-                            right: 24,
-                            zIndex: 60
-                        }}
-                    >
-                        <span className="text-[11px] font-bold text-indigo-400 uppercase tracking-widest">{selectedNodeIds.size} Target Selection</span>
-                        <button
-                            onClick={() => requestDeleteNodes(Array.from(selectedNodeIds), 16, 16)}
-                            className="px-4 py-1.5 bg-red-600/20 hover:bg-red-600 border border-red-500/30 rounded-full text-[10px] font-bold text-red-100 transition-all uppercase tracking-widest shadow-lg active:scale-95"
-                        >
-                            Purge Selection
-                        </button>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={confirmDelete}
+                                    className="flex-1 h-12 bg-red-600/20 hover:bg-red-600 border border-red-500/30 rounded-xl text-[10px] font-black text-red-100 transition-all uppercase tracking-[0.2em] shadow-lg active:scale-95"
+                                >
+                                    Confirm Purge
+                                </button>
+                                <button
+                                    onClick={() => setDeleteConfirm(null)}
+                                    className="flex-1 h-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-black text-slate-300 transition-all uppercase tracking-[0.2em] active:scale-95"
+                                >
+                                    Abort
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -1012,13 +983,12 @@ export default function CerebroDashboard() {
                                 <input
                                     type="range"
                                     min={0.5}
-                                    max={2.5}
+                                    max={5.0}
                                     step={0.05}
                                     value={zoom}
                                     onChange={(e) => handleZoomChange(Number(e.target.value))}
                                     className="w-48"
                                 />
-                                <span className="text-[10px] text-indigo-400 font-mono font-black">{Math.round(zoom * 100)}%</span>
                             </div>
                         </div>
                     </div>
