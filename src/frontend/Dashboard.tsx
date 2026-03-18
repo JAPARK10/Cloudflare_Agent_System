@@ -642,22 +642,14 @@ export default function CerebroDashboard() {
         }
     };
 
-    const openDeleteConfirm = (nodeIds: string[], anchor?: { x: number; y: number }) => {
-        setDeleteConfirm({
-            x: anchor?.x ?? 0,
-            y: anchor?.y ?? 0,
-            nodeIds
-        });
+    const openDeleteConfirm = (nodeIds: string[]) => {
+        setDeleteConfirm({ x: 0, y: 0, nodeIds });
     };
 
-    const requestDeleteNodes = (
-        nodeIds: string[],
-        e: React.MouseEvent,
-        anchor?: { x: number; y: number }
-    ) => {
+    const requestDeleteNodes = (nodeIds: string[], e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
         e.stopPropagation();
-        openDeleteConfirm(nodeIds, anchor);
+        openDeleteConfirm(nodeIds);
     };
 
     const confirmDelete = async () => {
@@ -753,6 +745,17 @@ export default function CerebroDashboard() {
                 viewportY: mainRect.top + localY
             };
         })()
+        : null;
+    const isDeleteConfirmingSelected = !!(selectedNode && deleteConfirm && deleteConfirm.nodeIds.length === 1 && deleteConfirm.nodeIds[0] === selectedNode.id);
+    const selectedDeleteAffectedSet = isDeleteConfirmingSelected ? collectDescendants(new Set(deleteConfirm.nodeIds)) : new Set<string>();
+    const selectedDeleteDownstreamCount = isDeleteConfirmingSelected ? selectedDeleteAffectedSet.size - deleteConfirm.nodeIds.length : 0;
+    const deleteCardWidth = 248;
+    const deleteCardHeight = selectedDeleteDownstreamCount > 0 ? 140 : 122;
+    const selectedDeleteCardPosition = selectedNodeDeleteAnchor
+        ? {
+            left: Math.max(12, Math.min(selectedNodeDeleteAnchor.localX + 26, dimensions.width - deleteCardWidth - 12)),
+            top: Math.max(12, Math.min(selectedNodeDeleteAnchor.localY - deleteCardHeight / 2, dimensions.height - deleteCardHeight - 12))
+        }
         : null;
 
     const filteredProjects = projects.filter(p => p.toLowerCase().includes(projectSearch.toLowerCase()));
@@ -980,38 +983,84 @@ export default function CerebroDashboard() {
                 </svg>
 
                 {selectedNodeDeleteAnchor && (
-                    <button
-                        type="button"
-                        aria-label={`Delete ${selectedNode.label}`}
-                        onClick={(e) => requestDeleteNodes([selectedNode.id], e, {
-                            x: e.clientX,
-                            y: e.clientY
-                        })}
-                        style={{
-                            position: 'absolute',
-                            left: selectedNodeDeleteAnchor.localX,
-                            top: selectedNodeDeleteAnchor.localY,
-                            transform: 'translate(-50%, -50%)',
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '9999px',
-                            border: '1px solid rgba(248, 113, 113, 0.35)',
-                            background: 'rgba(15, 23, 42, 0.98)',
-                            color: '#f87171',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '16px',
-                            fontWeight: 900,
-                            lineHeight: 1,
-                            cursor: 'pointer',
-                            boxShadow: '0 12px 28px rgba(0, 0, 0, 0.45)',
-                            zIndex: 140,
-                            pointerEvents: 'auto'
-                        }}
-                    >
-                        ✕
-                    </button>
+                    isDeleteConfirmingSelected && selectedDeleteCardPosition ? (
+                        <div
+                            style={{
+                                position: 'absolute',
+                                left: selectedDeleteCardPosition.left,
+                                top: selectedDeleteCardPosition.top,
+                                width: `${deleteCardWidth}px`,
+                                minHeight: `${deleteCardHeight}px`,
+                                borderRadius: '18px',
+                                border: '1px solid rgba(248, 113, 113, 0.35)',
+                                background: 'rgba(15, 23, 42, 0.98)',
+                                boxShadow: '0 18px 42px rgba(0, 0, 0, 0.45)',
+                                zIndex: 145,
+                                pointerEvents: 'auto',
+                                overflow: 'hidden'
+                            }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div style={{ height: '2px', width: '100%', background: 'linear-gradient(90deg, rgba(220,38,38,0.95), rgba(248,113,113,0.95), rgba(220,38,38,0.3))' }} />
+                            <div className="p-4 flex flex-col gap-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-red-400 text-sm leading-none">⚠</span>
+                                    <span className="text-[12px] font-bold text-white">Delete Node</span>
+                                </div>
+                                <div className="bg-red-950/30 border border-red-500/20 rounded-xl px-3 py-2">
+                                    <p className="text-[11px] font-bold text-white truncate">"{selectedNode.label}"</p>
+                                    {selectedDeleteDownstreamCount > 0 && (
+                                        <p className="text-[10px] text-slate-400 mt-0.5">+{selectedDeleteDownstreamCount} downstream node{selectedDeleteDownstreamCount > 1 ? 's' : ''}</p>
+                                    )}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={confirmDelete}
+                                        className="flex-1 h-8 bg-red-600/20 hover:bg-red-600 border border-red-500/30 rounded-lg text-[9px] font-black text-red-100 transition-all duration-200 uppercase tracking-[0.15em] active:scale-95"
+                                    >
+                                        Delete{selectedDeleteDownstreamCount > 0 ? ` all ${selectedDeleteAffectedSet.size}` : ''}
+                                    </button>
+                                    <button
+                                        onClick={() => setDeleteConfirm(null)}
+                                        className="flex-1 h-8 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[9px] font-black text-slate-300 transition-all duration-200 uppercase tracking-[0.15em] active:scale-95"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            aria-label={`Delete ${selectedNode.label}`}
+                            onClick={(e) => requestDeleteNodes([selectedNode.id], e)}
+                            style={{
+                                position: 'absolute',
+                                left: selectedNodeDeleteAnchor.localX,
+                                top: selectedNodeDeleteAnchor.localY,
+                                transform: 'translate(-50%, -50%)',
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '9999px',
+                                border: '1px solid rgba(248, 113, 113, 0.35)',
+                                background: 'rgba(15, 23, 42, 0.98)',
+                                color: '#f87171',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '16px',
+                                fontWeight: 900,
+                                lineHeight: 1,
+                                cursor: 'pointer',
+                                boxShadow: '0 12px 28px rgba(0, 0, 0, 0.45)',
+                                zIndex: 140,
+                                pointerEvents: 'auto'
+                            }}
+                        >
+                            ✕
+                        </button>
+                    )
                 )}
 
                 {isLoading && (
@@ -1070,67 +1119,6 @@ export default function CerebroDashboard() {
                 />
             </aside>
 
-            {deleteConfirm && (() => {
-                const affectedSet = collectDescendants(new Set(deleteConfirm.nodeIds));
-                const downstreamCount = affectedSet.size - deleteConfirm.nodeIds.length;
-                const nodeLabel = entities.find(e => e.id === deleteConfirm.nodeIds[0])?.label ?? deleteConfirm.nodeIds[0];
-                const popupW = 248;
-                const popupH = downstreamCount > 0 ? 162 : 142;
-                const vw = typeof window !== 'undefined' ? window.innerWidth : 1440;
-                const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
-                // Place popup 10px to the right of the button; flip left if near viewport edge
-                const btnX = deleteConfirm.x;
-                const btnY = deleteConfirm.y;
-                const spaceRight = vw - btnX - 18;
-                const popupLeft = spaceRight >= popupW + 10 ? btnX + 18 + 10 : btnX - 18 - popupW - 10;
-                const popupTop = Math.max(8, Math.min(btnY - popupH / 2, vh - popupH - 8));
-                return (
-                    <div
-                        className="fixed inset-0 animate-fade-in"
-                        style={{ zIndex: 400 }}
-                        onClick={() => setDeleteConfirm(null)}
-                    >
-                        <div
-                            className="fixed glass-heavy rounded-2xl shadow-2xl border border-red-500/30 overflow-hidden"
-                            style={{
-                                left: popupLeft,
-                                top: popupTop,
-                                width: popupW,
-                                backdropFilter: 'blur(60px) saturate(180%)'
-                            }}
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <div className="h-0.5 w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600/40" />
-                            <div className="p-4 flex flex-col gap-3">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-red-400 text-sm leading-none">⚠</span>
-                                    <span className="text-[12px] font-bold text-white">Delete Node</span>
-                                </div>
-                                <div className="bg-red-950/30 border border-red-500/20 rounded-xl px-3 py-2">
-                                    <p className="text-[11px] font-bold text-white truncate">"{nodeLabel}"</p>
-                                    {downstreamCount > 0 && (
-                                        <p className="text-[10px] text-slate-400 mt-0.5">+{downstreamCount} downstream node{downstreamCount > 1 ? 's' : ''}</p>
-                                    )}
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={confirmDelete}
-                                        className="flex-1 h-8 bg-red-600/20 hover:bg-red-600 border border-red-500/30 rounded-lg text-[9px] font-black text-red-100 transition-all duration-200 uppercase tracking-[0.15em] active:scale-95"
-                                    >
-                                        Delete{downstreamCount > 0 ? ` all ${affectedSet.size}` : ''}
-                                    </button>
-                                    <button
-                                        onClick={() => setDeleteConfirm(null)}
-                                        className="flex-1 h-8 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[9px] font-black text-slate-300 transition-all duration-200 uppercase tracking-[0.15em] active:scale-95"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-            })()}
         </div>
     );
 }
