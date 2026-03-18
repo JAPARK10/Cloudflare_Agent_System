@@ -22,8 +22,8 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
                 '@cf/meta/llama-2-7b-chat-fp16'
             ];
 
-            let response;
-            let lastErr;
+            let response: string | undefined;
+            let lastErr: unknown;
             for (const model of models) {
                 try {
                     console.log(`Expansion Attempting with model: ${model}`);
@@ -38,12 +38,38 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
                     response = result.response || result.text;
                     if (response) break;
                 } catch (err) {
+                    const errMsg = err instanceof Error ? err.message : String(err);
+                    // 1031 = AI upstream unavailable; do not spam retries across all models.
+                    if (errMsg.includes('1031')) {
+                        console.warn(`Expansion unavailable on ${model} (1031): ${errMsg}`);
+                        lastErr = err;
+                        break;
+                    }
                     console.error(`Expansion failed on ${model}:`, err);
                     lastErr = err;
                 }
             }
 
-            if (!response) throw lastErr || new Error("All AI models failed for topic expansion.");
+            if (!response) {
+                const fallbackLines: string[] = [];
+                const compactTopic = (topic || 'topic').trim();
+                fallbackLines.push(`Core point: ${compactTopic}`);
+                if (notes.trim()) {
+                    const noteBits = notes
+                        .split(/\n+/)
+                        .map(s => s.trim())
+                        .filter(Boolean)
+                        .slice(0, 3);
+                    for (const bit of noteBits) fallbackLines.push(`Insight: ${bit}`);
+                } else {
+                    fallbackLines.push(`Insight: Key drivers and constraints around ${compactTopic}.`);
+                    fallbackLines.push(`Insight: Risks, tradeoffs, and system dependencies for ${compactTopic}.`);
+                    fallbackLines.push(`Insight: High-impact follow-up angles for ${compactTopic}.`);
+                }
+                const fallback = fallbackLines.slice(0, 4).join('\n');
+                console.warn('Expansion AI unavailable; using fallback expansion text.', lastErr);
+                return fallback;
+            }
 
             const rawResponse = response;
             console.log(`Step 1 Response received (${rawResponse.length} chars)`);
@@ -106,8 +132,12 @@ Required JSON shape (output this and nothing else):
                         max_tokens: 2048
                     });
                 } catch (err) {
-                    console.error(`Discovery attempt ${i + 1} (${model}) failed:`, err);
                     lastError = `AI Service Error: ${err instanceof Error ? err.message : String(err)}`;
+                    if (lastError.includes('1031')) {
+                        console.warn(`Discovery unavailable on ${model} (1031); returning empty discovery result.`);
+                        return { entities: [], relationships: [] };
+                    }
+                    console.error(`Discovery attempt ${i + 1} (${model}) failed:`, err);
                     continue; // Fallback to next model/attempt
                 }
 

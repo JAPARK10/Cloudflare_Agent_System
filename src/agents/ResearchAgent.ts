@@ -402,6 +402,7 @@ RULES:
 
         let lastResultText = '';
         let lastError: any = null;
+        let sawUpstream1031 = false;
 
         for (let i = 0; i < models.length; i++) {
             const model = models[i];
@@ -421,18 +422,33 @@ RULES:
 
                 if (!resultText) throw new Error("Empty response from AI");
 
-                const data = JSON.parse(resultText);
+                // Accept small wrappers around JSON and parse only the outermost object.
+                const start = resultText.indexOf('{');
+                const end = resultText.lastIndexOf('}');
+                if (start === -1 || end === -1 || end < start) {
+                    throw new Error('No JSON object found in response');
+                }
+                const data = JSON.parse(resultText.slice(start, end + 1));
                 const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [String(data.suggestions)];
                 return { suggestions: suggestions.slice(0, 5) };
 
             } catch (err) {
-                console.error(`Resonance attempt ${i + 1} (${model}) failed:`, err);
+                const errMsg = err instanceof Error ? err.message : String(err);
+                console.warn(`Resonance attempt ${i + 1} (${model}) failed: ${errMsg}`);
                 lastError = err;
+                if (errMsg.includes('1031')) {
+                    sawUpstream1031 = true;
+                    break;
+                }
                 // If we have more models, the loop continues to the next one
             }
         }
 
-        console.error("Resonance engine failed all models", lastError, lastResultText);
+        if (sawUpstream1031) {
+            console.warn('Resonance engine unavailable (1031), returning deterministic fallback suggestions.');
+        } else {
+            console.error("Resonance engine failed all models", lastError, lastResultText);
+        }
         return { suggestions: ["Explore alternative systemic implications", "Analyze cross-domain resonance points", "Synthesize emerging patterns"] };
     }
 
