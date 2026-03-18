@@ -50,34 +50,42 @@ const DetailPanel = ({ node, entities, slug, onExpand }: DetailPanelProps) => {
     const [messages, setMessages] = useState<{ role: 'user' | 'ai', content: string }[]>([]);
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [isExploring, setIsExploring] = useState(false);
+    const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const suggestionRequestRef = useRef(0);
 
     // Reset chat when node changes and fetch initial suggestion
     useEffect(() => {
         setMessages([]);
         setQuery('');
+        setSuggestions([]);
         if (node) {
-            fetchInitialSuggestion();
+            const requestId = ++suggestionRequestRef.current;
+            fetchInitialSuggestion(node.id, requestId);
         }
-    }, [node?.id]);
+    }, [node?.id, slug]);
 
     useEffect(() => {
         if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }, [messages]);
 
-    const fetchInitialSuggestion = async () => {
-        if (!node) return;
+    const fetchInitialSuggestion = async (nodeId: string, requestId: number) => {
+        setIsLoadingSuggestions(true);
         try {
             const res = await fetch(`${API_BASE}/project/${slug}/getInitialSuggestion`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nodeId: node.id })
+                body: JSON.stringify({ nodeId })
             });
             const data = await res.json() as any;
+            if (requestId !== suggestionRequestRef.current) return;
             setSuggestions(data.suggestions || (data.suggestion ? [data.suggestion] : []));
             setMessages([{ role: 'ai', content: "Tap a resonance point to expand the intelligence..." }]);
         } catch (e) {
+            if (requestId !== suggestionRequestRef.current) return;
             setMessages([{ role: 'ai', content: "Intelligence core linked. System ready for exploration." }]);
+        } finally {
+            if (requestId === suggestionRequestRef.current) setIsLoadingSuggestions(false);
         }
     };
 
@@ -178,7 +186,7 @@ const DetailPanel = ({ node, entities, slug, onExpand }: DetailPanelProps) => {
                                         </span>
                                     </button>
                                 ))}
-                                {suggestions.length === 0 && (
+                                {suggestions.length === 0 && isLoadingSuggestions && (
                                     <div className="text-[11px] text-slate-500 font-medium italic py-4">
                                         Synthesizing research angles...
                                     </div>
@@ -301,6 +309,41 @@ export default function CerebroDashboard() {
         setSelectedNodeIds(new Set());
     };
 
+    const switchActiveProject = (slug: string) => {
+        setActiveSlug(slug);
+        setSelectedNodeId('root');
+        setSelectedNodeIds(new Set(['root']));
+        setNodes([]);
+        setEntities([]);
+        setRelationships([]);
+        setNotes([]);
+        setDeleteConfirm(null);
+    };
+
+    // Compute the path from selected node to root
+    const pathToRoot = useMemo(() => {
+        if (!selectedNodeId || selectedNodeId === 'root') return new Set(['root']);
+        
+        const path = new Set<string>(['root']);
+        let current = selectedNodeId;
+        const visited = new Set<string>([current]);
+        
+        while (current && current !== 'root') {
+            // Find the parent of the current node (relationship where current is target)
+            const parentRel = relationships.find(rel => rel.target === current);
+            if (!parentRel) break;
+            
+            const parent = parentRel.source;
+            if (visited.has(parent)) break; // Prevent infinite loops
+            
+            path.add(parent);
+            visited.add(parent);
+            current = parent;
+        }
+        
+        return path;
+    }, [selectedNodeId, relationships]);
+
     // Initialize projects list from localStorage
     useEffect(() => {
         const saved = window.localStorage.getItem('cerebro_projects');
@@ -308,7 +351,7 @@ export default function CerebroDashboard() {
             try {
                 const parsed = JSON.parse(saved);
                 setProjects(parsed.map((p: any) => p.slug));
-                if (parsed.length > 0) setActiveSlug(parsed[0].slug);
+                if (parsed.length > 0) switchActiveProject(parsed[0].slug);
             } catch (e) {
                 console.error("Failed to parse projects", e);
             }
@@ -615,7 +658,7 @@ export default function CerebroDashboard() {
             if (res.ok) {
                 const newProjects = [...projects, slug];
                 setProjects(newProjects);
-                setActiveSlug(slug);
+                switchActiveProject(slug);
                 window.localStorage.setItem('cerebro_projects', JSON.stringify(newProjects.map(s => ({ slug: s }))));
             }
         });
@@ -629,8 +672,10 @@ export default function CerebroDashboard() {
         setProjects(newProjects);
         window.localStorage.setItem('cerebro_projects', JSON.stringify(newProjects.map(s => ({ slug: s }))));
         if (activeSlug === slug) {
-            setActiveSlug(newProjects[0] || '');
-            if (!newProjects[0]) {
+            if (newProjects[0]) {
+                switchActiveProject(newProjects[0]);
+            } else {
+                setActiveSlug('');
                 // No projects left, clear the map
                 setNodes([]);
                 setEntities([]);
@@ -638,6 +683,7 @@ export default function CerebroDashboard() {
                 setNotes([]);
                 setSelectedNodeId(null);
                 setSelectedNodeIds(new Set());
+                setDeleteConfirm(null);
             }
         }
     };
@@ -794,7 +840,7 @@ export default function CerebroDashboard() {
                             <div
                                 key={p}
                                 className={`project-item group flex justify-between items-center p-4 rounded-xl border border-transparent transition-all cursor-pointer ${activeSlug === p ? 'bg-indigo-600/10 border-indigo-500/20 active shadow-lg' : 'hover:bg-white/[0.03] hover:border-white/5'}`}
-                                onClick={() => setActiveSlug(p)}
+                                onClick={() => switchActiveProject(p)}
                             >
                                 <div className="flex items-center gap-4">
                                     <div className={`w-1 h-1 rounded-full ${activeSlug === p ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,1)]' : 'bg-slate-600'}`}></div>
@@ -883,8 +929,12 @@ export default function CerebroDashboard() {
                         if (!source || !target) return null;
                         const p1 = getDisplayPos(source);
                         const p2 = getDisplayPos(target);
-                        const isEdgeHighlighted = (selectedNodeId === rel.source || selectedNodeId === rel.target) || 
-                                               (selectedNodeIds.has(rel.source) || selectedNodeIds.has(rel.target));
+                        
+                        // Highlight edges where either endpoint is selected, OR edges on the path to root
+                        const isDirectlyConnected = (selectedNodeId === rel.source || selectedNodeId === rel.target) || 
+                                                   (selectedNodeIds.has(rel.source) || selectedNodeIds.has(rel.target));
+                        const isOnPathToRoot = pathToRoot.has(rel.source) && pathToRoot.has(rel.target);
+                        const isEdgeHighlighted = isDirectlyConnected || isOnPathToRoot;
 
                         return (
                             <line
