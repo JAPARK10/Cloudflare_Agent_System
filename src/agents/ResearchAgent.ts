@@ -394,51 +394,46 @@ RULES:
 4. Output MUST be a valid JSON object with a single key "suggestions" containing an array of strings.
 5. DO NOT include any text before or after the JSON.`;
 
-        const executeLlm = async (prompt: string, attempt: number) => {
-            console.log(`Resonance Angles Attempt ${attempt}...`);
-            // Model fallback list
-            const models = [
-                '@cf/meta/llama-3.1-8b-instruct',
-                '@cf/meta/llama-3-8b-instruct',
-                '@cf/meta/llama-2-7b-chat-fp16'
-            ];
-            
-            const model = models[Math.min(attempt - 1, models.length - 1)];
-            console.log(`Using model: ${model}`);
+        const models = [
+            '@cf/meta/llama-3.1-8b-instruct',
+            '@cf/meta/llama-3-8b-instruct',
+            '@cf/meta/llama-2-7b-chat-fp16'
+        ];
 
+        let lastResultText = '';
+        let lastError: any = null;
+
+        for (let i = 0; i < models.length; i++) {
+            const model = models[i];
+            console.log(`Resonance Angles Attempt ${i + 1} using model: ${model}...`);
+            
             try {
                 const response = await this.env.AI.run(model, {
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        { role: 'user', content: attempt > 1 ? "Your previous response was not valid JSON. Please return ONLY the JSON object now." : "Generate resonance angles." }
+                        { role: 'user', content: i > 0 ? "Your previous attempt failed. Please return ONLY a valid JSON object now." : "Generate resonance angles." }
                     ]
                 });
+                
                 // @ts-ignore
-                return response.response || response.text;
+                const resultText = (response.response || response.text || "").trim();
+                lastResultText = resultText;
+
+                if (!resultText) throw new Error("Empty response from AI");
+
+                const data = JSON.parse(resultText);
+                const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [String(data.suggestions)];
+                return { suggestions: suggestions.slice(0, 5) };
+
             } catch (err) {
-                console.error(`LLM Call failed on ${model}:`, err);
-                throw err;
+                console.error(`Resonance attempt ${i + 1} (${model}) failed:`, err);
+                lastError = err;
+                // If we have more models, the loop continues to the next one
             }
-        };
-
-        let resultText = '';
-        try {
-            resultText = await executeLlm(systemPrompt, 1);
-            let data: any;
-            try {
-                data = JSON.parse(resultText);
-            } catch (e) {
-                console.warn("Attempt 1 failed JSON parse, retrying...");
-                resultText = await executeLlm(systemPrompt, 2);
-                data = JSON.parse(resultText);
-            }
-
-            const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [String(data.suggestions)];
-            return { suggestions: suggestions.slice(0, 5) };
-        } catch (e) {
-            console.error("Resonance engine failed after retries", e, resultText);
-            return { suggestions: ["Explore alternative systemic implications", "Analyze cross-domain resonance points", "Synthesize emerging patterns"] };
         }
+
+        console.error("Resonance engine failed all models", lastError, lastResultText);
+        return { suggestions: ["Explore alternative systemic implications", "Analyze cross-domain resonance points", "Synthesize emerging patterns"] };
     }
 
     private async generateEmbedding(text: string): Promise<number[]> {

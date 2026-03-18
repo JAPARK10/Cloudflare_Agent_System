@@ -39,20 +39,25 @@ The system automatically links new discoveries back to "anchor" or "seed" nodes,
 
 ### Cloudflare Setup & Authentication
 
-Before running the system, you must authenticate with Cloudflare and initialize the required services.
+Before running the backend, authenticate with Cloudflare and initialize the required services.
 
-1.  **Login to Wrangler**:
+1.  **Install dependencies**:
+    ```bash
+    npm install
+    ```
+
+2.  **Login to Wrangler** (required for `wrangler dev`, `wrangler deploy`, Vectorize, migrations, and Workers AI bindings):
     ```bash
     npx wrangler login
     ```
 
-2.  **Create Vectorize Index**:
+3.  **Create Vectorize Index** (one-time setup per account/environment):
     Cerebro uses Vectorize for semantic intelligence. Create the index using the following command:
     ```bash
     npx wrangler vectorize create knowledge-graph-index --dimensions 1024 --metric cosine
     ```
 
-3.  **Apply SQLite Migrations**:
+4.  **Apply SQLite Migrations** (one-time setup per environment):
     The system uses Durable Objects with SQLite storage. Initialize the database schema:
     ```bash
     npx wrangler migrations apply cerebro-ai
@@ -72,13 +77,17 @@ npm run frontend
 
 After starting both, navigate to `http://localhost:5173` (or the URL provided by the frontend terminal) to access the dashboard.
 
+Note: the frontend is currently configured to call the backend at `http://localhost:8787`.
+
 ## Deployment
 
-Deploying to the Cloudflare global network is a single command:
+Deploy the Worker API to the Cloudflare global network:
 
 ```bash
 npm run deploy
 ```
+
+This deploys the backend Worker (API, Durable Object, Workflow bindings). The Vite frontend is not deployed by this command and must be hosted separately.
 
 ---
 

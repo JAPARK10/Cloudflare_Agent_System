@@ -117,10 +117,17 @@ const DetailPanel = ({ node, entities, slug, onExpand }: DetailPanelProps) => {
     };
 
     return (
-        <div className="h-full flex flex-col bg-slate-900/60 backdrop-blur-[40px] border-l border-white/5 shadow-premium">
+        <div className="h-full min-h-0 flex flex-col">
+            {/* WINDOW CHROME */}
+            <div className="flex items-center gap-2 px-5 py-3.5 bg-white/[0.03] border-b border-white/[0.05] flex-shrink-0">
+                <div className="w-3 h-3 rounded-full bg-red-500/60 hover:bg-red-500 transition-colors cursor-pointer"></div>
+                <div className="w-3 h-3 rounded-full bg-yellow-500/60 hover:bg-yellow-500 transition-colors cursor-pointer"></div>
+                <div className="w-3 h-3 rounded-full bg-green-500/60 hover:bg-green-500 transition-colors cursor-pointer"></div>
+                <span className="ml-auto text-[9px] font-black text-slate-600 uppercase tracking-[0.35em]">Intelligence Detail</span>
+            </div>
             {/* PANEL HEADER */}
             <div className="bg-white/[0.02] border-b border-white/5 py-10 px-10">
-                <div className="flex flex-col space-y-2">
+                <div className="flex flex-col space-y-2 min-w-0">
                     <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.4em]">Intelligence Focus</span>
                     <h3 className="text-3xl font-bold text-white tracking-tighter leading-tight" style={{ fontFamily: 'var(--font-heading)' }}>
                         {node.label}
@@ -128,7 +135,7 @@ const DetailPanel = ({ node, entities, slug, onExpand }: DetailPanelProps) => {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 flex flex-col min-h-0">
                 <div className="p-10 overflow-y-auto flex-1 min-h-0 space-y-12 scroll-area" ref={scrollRef}>
                     {/* SUMMARY SECTION */}
                     <div className="space-y-8 animate-fade-in shadow-sm">
@@ -398,17 +405,25 @@ export default function CerebroDashboard() {
                         const siblings = adjacency.get(parentId) || [];
                         const siblingIndex = siblings.indexOf(e.id);
 
-                        // Position children in a circle around parent with depth-based distance
+                        // Depth-proportional radius: root children stay at ~220px,
+                        // each deeper level shrinks by 50% so deeper nodes cluster tightly.
                         const depth = nodeDepths.get(e.id) ?? 1;
-                        const childRadius = 80 + (depth * 40); // Increase distance with depth
+                        const BASE_RADIUS = 220;
+                        const childRadius = BASE_RADIUS * Math.pow(0.5, depth - 1);
+
+                        // Even base angle across siblings, then add seeded jitter
+                        // so nodes never line up in a perfect cross/circle.
                         const angleStep = (2 * Math.PI) / Math.max(siblings.length, 1);
-                        const angle = siblingIndex * angleStep;
+                        const baseAngle = siblingIndex * angleStep;
+                        const angleJitter = (seeded(e.id + 'aj') - 0.5) * (Math.PI / 3); // ±30°
+                        const radiusJitter = 1 + (seeded(e.id + 'rj') - 0.5) * 0.25;    // ±12.5%
+                        const angle = baseAngle + angleJitter;
 
                         return {
                             id: e.id,
                             label: e.label,
-                            x: parentPos.x + Math.cos(angle) * childRadius,
-                            y: parentPos.y + Math.sin(angle) * childRadius
+                            x: parentPos.x + Math.cos(angle) * childRadius * radiusJitter,
+                            y: parentPos.y + Math.sin(angle) * childRadius * radiusJitter
                         };
                     });
 
@@ -632,17 +647,22 @@ export default function CerebroDashboard() {
         }
     };
 
-    const requestDeleteNodes = (nodeIds: string[], e: React.MouseEvent) => {
-        const rect = mainRef.current?.getBoundingClientRect();
-        if (rect) {
-            setDeleteConfirm({ 
-                x: e.clientX - rect.left, 
-                y: e.clientY - rect.top, 
-                nodeIds 
-            });
-        } else {
-            setDeleteConfirm({ x: e.clientX, y: e.clientY, nodeIds });
-        }
+    const openDeleteConfirm = (nodeIds: string[], anchor?: { x: number; y: number }) => {
+        setDeleteConfirm({
+            x: anchor?.x ?? 0,
+            y: anchor?.y ?? 0,
+            nodeIds
+        });
+    };
+
+    const requestDeleteNodes = (
+        nodeIds: string[],
+        e: React.MouseEvent,
+        anchor?: { x: number; y: number }
+    ) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openDeleteConfirm(nodeIds, anchor);
     };
 
     const confirmDelete = async () => {
@@ -725,6 +745,20 @@ export default function CerebroDashboard() {
     };
 
     const selectedNode: GraphNode | null = nodes.find(n => n.id === selectedNodeId) ?? null;
+    const selectedNodeDeleteAnchor = selectedNode && selectedNode.id !== 'root' && mainRef.current
+        ? (() => {
+            const radius = getNodeRadius(selectedNode.id);
+            const mainRect = mainRef.current.getBoundingClientRect();
+            const localX = center.x + pan.x + zoom * (selectedNode.x - 400 + radius + 18);
+            const localY = center.y + pan.y + zoom * (selectedNode.y - 300 + 28);
+            return {
+                localX,
+                localY,
+                viewportX: mainRect.left + localX,
+                viewportY: mainRect.top + localY
+            };
+        })()
+        : null;
 
     const filteredProjects = projects.filter(p => p.toLowerCase().includes(projectSearch.toLowerCase()));
     const filteredNotes = notes.filter(n => {
@@ -928,7 +962,12 @@ export default function CerebroDashboard() {
                                 </text>
 
                                 {isSelected && (
-                                    <g className="node-controls active" transform={`translate(${radius + 12}, -12)`}>
+                                    <g
+                                        className="node-controls active"
+                                        transform={`translate(${radius + 12}, -12)`}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
                                         <g
                                             className="control-btn drag-btn group cursor-move"
                                             onMouseDown={(e) => startNodeDrag(e, n.id)}
@@ -937,16 +976,6 @@ export default function CerebroDashboard() {
                                             <text x="0" y={4} textAnchor="middle" fontSize={12} fill="var(--accent-primary)" style={{ pointerEvents: 'none' }}>✥</text>
                                         </g>
 
-                                        {n.id !== 'root' && (
-                                            <g
-                                                className="control-btn delete-btn group cursor-pointer"
-                                                onClick={(e) => requestDeleteNodes([n.id], e)}
-                                                transform="translate(0, 36)"
-                                            >
-                                                <circle r={14} fill="rgba(15,23,42,0.95)" stroke="rgba(255,100,100,0.2)" className="shadow-premium" />
-                                                <text x="0" y={4} textAnchor="middle" fontSize={12} fill="var(--danger)" style={{ pointerEvents: 'none' }}>✕</text>
-                                            </g>
-                                        )}
                                     </g>
                                 )}
                             </g>
@@ -954,50 +983,40 @@ export default function CerebroDashboard() {
                     })}
                     </g>
                 </svg>
-                
-                {deleteConfirm && (
-                    <div
-                        className="glass-heavy p-8 rounded-[2rem] animate-fade-in shadow-2xl border border-red-500/20"
+
+                {selectedNodeDeleteAnchor && (
+                    <button
+                        type="button"
+                        aria-label={`Delete ${selectedNode.label}`}
+                        onClick={(e) => requestDeleteNodes([selectedNode.id], e, {
+                            x: selectedNodeDeleteAnchor.viewportX,
+                            y: selectedNodeDeleteAnchor.viewportY
+                        })}
                         style={{
                             position: 'absolute',
-                            left: deleteConfirm.x + 20,
-                            top: deleteConfirm.y + 20,
-                            zIndex: 100,
-                            minWidth: 280,
-                            backdropFilter: 'blur(40px) saturate(180%)'
+                            left: selectedNodeDeleteAnchor.localX,
+                            top: selectedNodeDeleteAnchor.localY,
+                            transform: 'translate(-50%, -50%)',
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '9999px',
+                            border: '1px solid rgba(248, 113, 113, 0.35)',
+                            background: 'rgba(15, 23, 42, 0.98)',
+                            color: '#f87171',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '16px',
+                            fontWeight: 900,
+                            lineHeight: 1,
+                            cursor: 'pointer',
+                            boxShadow: '0 12px 28px rgba(0, 0, 0, 0.45)',
+                            zIndex: 140,
+                            pointerEvents: 'auto'
                         }}
                     >
-                        <div className="flex flex-col gap-6">
-                            <div className="flex items-center gap-4">
-                                <div className="w-8 h-8 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20">
-                                    <span className="text-red-400 text-sm">⚠</span>
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-[9px] font-black text-red-400 uppercase tracking-[0.3em]">Neural Interface</span>
-                                    <span className="text-[13px] font-bold text-white tracking-widest uppercase">Purge Confirmation</span>
-                                </div>
-                            </div>
-                            
-                            <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
-                                Are you certain you want to de-materialize this intelligence node and all its descending links? This action is irreversible.
-                            </p>
-
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={confirmDelete}
-                                    className="flex-1 h-12 bg-red-600/20 hover:bg-red-600 border border-red-500/30 rounded-xl text-[10px] font-black text-red-100 transition-all uppercase tracking-[0.2em] shadow-lg active:scale-95"
-                                >
-                                    Confirm Purge
-                                </button>
-                                <button
-                                    onClick={() => setDeleteConfirm(null)}
-                                    className="flex-1 h-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-black text-slate-300 transition-all uppercase tracking-[0.2em] active:scale-95"
-                                >
-                                    Abort
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                        ✕
+                    </button>
                 )}
 
                 {isLoading && (
@@ -1055,6 +1074,73 @@ export default function CerebroDashboard() {
                     onExpand={handleExpandResearch}
                 />
             </aside>
+
+            {deleteConfirm && (() => {
+                const affectedSet = collectDescendants(new Set(deleteConfirm.nodeIds));
+                const downstreamCount = affectedSet.size - deleteConfirm.nodeIds.length;
+                const nodeLabel = entities.find(e => e.id === deleteConfirm.nodeIds[0])?.label ?? deleteConfirm.nodeIds[0];
+                const modalWidth = 380;
+                const modalHeight = 260;
+                const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
+                const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 900;
+                const popupLeft = Math.max(16, Math.min(deleteConfirm.x + 24, viewportWidth - modalWidth - 16));
+                const popupTop = Math.max(16, Math.min(deleteConfirm.y - 20, viewportHeight - modalHeight - 16));
+                return (
+                    <div
+                        className="fixed inset-0 animate-fade-in"
+                        style={{ zIndex: 400 }}
+                        onClick={() => setDeleteConfirm(null)}
+                    >
+                        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+                        <div
+                            className="fixed glass-heavy rounded-[2rem] shadow-2xl border border-red-500/30 w-[380px] overflow-hidden"
+                            style={{
+                                left: popupLeft,
+                                top: popupTop,
+                                backdropFilter: 'blur(60px) saturate(180%)'
+                            }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="h-1 w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600/40" />
+                            <div className="p-8 flex flex-col gap-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-2xl bg-red-500/15 flex items-center justify-center border border-red-500/30 flex-shrink-0">
+                                        <span className="text-red-400 text-base">⚠</span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] font-black text-red-400 uppercase tracking-[0.35em]">Irreversible Action</span>
+                                        <span className="text-[15px] font-bold text-white tracking-wide">Delete Node</span>
+                                    </div>
+                                </div>
+                                <div className="bg-red-950/30 border border-red-500/20 rounded-2xl p-5 space-y-2">
+                                    <p className="text-[13px] font-bold text-white">"{nodeLabel}"</p>
+                                    <p className="text-[12px] text-slate-300 leading-relaxed">
+                                        {downstreamCount > 0
+                                            ? <>This node and <span className="text-red-300 font-bold">{downstreamCount} downstream node{downstreamCount > 1 ? 's' : ''}</span> will be permanently deleted.</>
+                                            : <>This node will be permanently deleted.</>
+                                        }
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 font-medium">This action cannot be undone.</p>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={confirmDelete}
+                                        className="flex-1 h-12 bg-red-600/20 hover:bg-red-600 border border-red-500/30 rounded-xl text-[10px] font-black text-red-100 transition-all duration-200 uppercase tracking-[0.2em] shadow-lg active:scale-95"
+                                    >
+                                        Delete{downstreamCount > 0 ? ` all ${affectedSet.size}` : ''}
+                                    </button>
+                                    <button
+                                        onClick={() => setDeleteConfirm(null)}
+                                        className="flex-1 h-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-black text-slate-300 transition-all duration-200 uppercase tracking-[0.2em] active:scale-95"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }

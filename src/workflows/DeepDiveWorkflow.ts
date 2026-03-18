@@ -10,11 +10,11 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
         const expansion = await step.do('expand-topic', async () => {
             console.log(`Step 1: Expanding topic "${topic}"`);
             const notes = event.payload.notes?.join('\n') || '';
-            const systemPrompt = `You are a research strategist. Break down a complex topic into a maximum of 4 specific, distinct research sub-tasks. 
+            const systemPrompt = `You are a research strategist. Extract a maximum of 4 core points and specific insights from the provided context. 
             CONTEXT FROM USER VOICE NOTES:
             ${notes}
             
-            Be highly specific and avoid generic definitions.`;
+            Be highly specific. Each point should be a concise, meaningful statement representing a key takeaway.`;
 
             const models = [
                 '@cf/meta/llama-3.1-8b-instruct',
@@ -70,20 +70,19 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
             const maxRetries = 7;
 
             for (let i = 0; i < maxRetries; i++) {
-                const systemPrompt = `Extract key entities and relationships.
+                const systemPrompt = `Extract key entities from the provided core points.
                 STRICT LIMIT: Extract a maximum of 4 high-priority entities.
                 EXISTING ENTITIES (Do NOT duplicate these concepts): ${existingEntities}
                 
                 STRICT RULES:
-                1. Return ONLY a raw JSON object. No conversational text. No "Here is the JSON...". No markdown blocks (\`\`\`json).
-                2. If you violate rule #1, your output will be rejected.
-                3. Do NOT include the main topic "${topic}" as an entity.
-                4. IDs must be unique, descriptive, and slugified.
+                1. Return ONLY a raw JSON object. No conversational text. No markdown blocks (\`\`\`json).
+                2. Do NOT include the main topic "${topic}" as an entity.
+                3. IDs must be unique, descriptive, and slugified.
+                4. The "label" for each entity MUST be the core point text itself (shortened to a meaningful title if needed).
                 
                 JSON Format:
                 { 
-                  "entities": [{"id": "string", "label": "string", "type": "concept|person|place|event", "summary": "string"}], 
-                   "relationships": [{"source": "string", "target": "string", "type": "string"}] 
+                  "entities": [{"id": "string", "label": "string", "type": "concept|person|place|event", "summary": "string"}]
                 }`;
 
                 let retryPrompt = i > 0
@@ -102,13 +101,20 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
                 const model = models[Math.min(i, models.length - 1)];
                 console.log(`Discovery Attempting with model: ${model}`);
 
-                const result = await this.env.AI.run(model, {
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: retryPrompt }
-                    ],
-                    max_tokens: 2048
-                });
+                let result;
+                try {
+                    result = await this.env.AI.run(model, {
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: retryPrompt }
+                        ],
+                        max_tokens: 2048
+                    });
+                } catch (err) {
+                    console.error(`Discovery attempt ${i + 1} (${model}) failed:`, err);
+                    lastError = `AI Service Error: ${err instanceof Error ? err.message : String(err)}`;
+                    continue; // Fallback to next model/attempt
+                }
 
                 // @ts-ignore
                 const rawResponse = (result.response || result.text || "").trim();
@@ -125,10 +131,8 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
 
                     // Strict limit enforcement: slice to 4 nodes
                     parsed.entities = (parsed.entities || []).slice(0, 4);
-                    parsed.relationships = (parsed.relationships || []).filter((rel: Relationship) => 
-                        parsed.entities.some((e: Entity) => e.id === rel.source || e.id === rel.target) || 
-                        rel.source === 'root' || rel.target === 'root'
-                    );
+                    // Relationships are now handled strictly by the workflow logic, ignoring any AI-generated ones
+                    parsed.relationships = [];
 
                     // Log successful or final trace
                     const agentId = this.env.RESEARCH_AGENT.idFromName(agentName);
