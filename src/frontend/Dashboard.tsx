@@ -355,64 +355,59 @@ export default function CerebroDashboard() {
                         return (h % 1000) / 1000;
                     };
 
+                    // Build adjacency and BFS depths from the freshly fetched data,
+                    // so parent depths are always accurate regardless of React state timing.
+                    const adjacency = new Map<string, string[]>();
+                    data.relationships.forEach(rel => {
+                        if (!adjacency.has(rel.source)) adjacency.set(rel.source, []);
+                        adjacency.get(rel.source)!.push(rel.target);
+                    });
+
+                    const localDepths = new Map<string, number>();
+                    localDepths.set('root', 0);
+                    const bfsQ: string[] = ['root'];
+                    while (bfsQ.length) {
+                        const cur = bfsQ.shift()!;
+                        const d = localDepths.get(cur) ?? 0;
+                        for (const child of adjacency.get(cur) || []) {
+                            if (!localDepths.has(child)) {
+                                localDepths.set(child, d + 1);
+                                bfsQ.push(child);
+                            }
+                        }
+                    }
+
                     const newNodes = data.entities.map((e, idx) => {
                         const pos = positionMap.get(e.id);
                         if (pos) return { id: e.id, label: e.label, ...pos };
 
                         if (e.id === 'root') return { id: 'root', label: e.label, x: 400, y: 300 };
 
-                        // Create tree-based positioning
-                        const adjacency = new Map<string, string[]>();
-                        data.relationships.forEach(rel => {
-                            const from = rel.source;
-                            const to = rel.target;
-                            if (!adjacency.has(from)) adjacency.set(from, []);
-                            adjacency.get(from)!.push(to);
-                        });
-
                         // Find parent of this node
-                        let parentId = null;
+                        let parentId: string | null = null;
                         for (const [source, targets] of adjacency) {
-                            if (targets.includes(e.id)) {
-                                parentId = source;
-                                break;
-                            }
+                            if (targets.includes(e.id)) { parentId = source; break; }
                         }
 
                         if (!parentId) {
-                            // No parent found, position randomly around center (fallback)
                             const angle = (idx / data.entities.length) * 2 * Math.PI;
-                            const radius = 200;
-                            return {
-                                id: e.id,
-                                label: e.label,
-                                x: 400 + Math.cos(angle) * radius,
-                                y: 300 + Math.sin(angle) * radius
-                            };
+                            return { id: e.id, label: e.label, x: 400 + Math.cos(angle) * 200, y: 300 + Math.sin(angle) * 200 };
                         }
 
-                        // Find parent position
-                        const parentPos = positionMap.get(parentId) || { x: 400, y: 300 };
-                        const parentNode = data.entities.find(ent => ent.id === parentId);
-                        if (parentNode) {
-                            const parentExistingPos = positionMap.get(parentId);
-                            if (parentExistingPos) {
-                                Object.assign(parentPos, parentExistingPos);
-                            }
-                        }
+                        const parentPos = { ...(positionMap.get(parentId) || { x: 400, y: 300 }) };
 
                         // Get siblings (other children of the same parent)
                         const siblings = adjacency.get(parentId) || [];
                         const siblingIndex = siblings.indexOf(e.id);
 
-                        // Depth-proportional radius: root children stay at ~220px,
-                        // each deeper level shrinks by 50% so deeper nodes cluster tightly.
-                        const depth = nodeDepths.get(e.id) ?? 1;
-                        const BASE_RADIUS = 220;
-                        const childRadius = BASE_RADIUS * Math.pow(0.5, depth - 1);
+                        // Placement distance proportional to the parent's visual radius:
+                        // root (depth 0) radius=12 → childRadius 216px
+                        // depth 1 radius=8.4 → childRadius ~151px
+                        // depth 2 radius=5.9 → childRadius ~106px  etc.
+                        const parentDepth = localDepths.get(parentId) ?? 0;
+                        const parentRadius = Math.max(4, 12 * Math.pow(0.64, parentDepth));
+                        const childRadius = parentRadius * 18;
 
-                        // Even base angle across siblings, then add seeded jitter
-                        // so nodes never line up in a perfect cross/circle.
                         const angleStep = (2 * Math.PI) / Math.max(siblings.length, 1);
                         const baseAngle = siblingIndex * angleStep;
                         const angleJitter = (seeded(e.id + 'aj') - 0.5) * (Math.PI / 3); // ±30°
@@ -499,7 +494,7 @@ export default function CerebroDashboard() {
     const getNodeRadius = (nodeId: string) => {
         const depth = nodeDepths.get(nodeId) ?? 1;
         const base = 12;
-        return Math.max(4, base * Math.pow(0.7, depth));
+        return Math.max(4, base * Math.pow(0.64, depth));
     };
 
     const collectDescendants = (startIds: Set<string>) => {
@@ -989,8 +984,8 @@ export default function CerebroDashboard() {
                         type="button"
                         aria-label={`Delete ${selectedNode.label}`}
                         onClick={(e) => requestDeleteNodes([selectedNode.id], e, {
-                            x: selectedNodeDeleteAnchor.viewportX,
-                            y: selectedNodeDeleteAnchor.viewportY
+                            x: e.clientX,
+                            y: e.clientY
                         })}
                         style={{
                             position: 'absolute',
@@ -1079,59 +1074,54 @@ export default function CerebroDashboard() {
                 const affectedSet = collectDescendants(new Set(deleteConfirm.nodeIds));
                 const downstreamCount = affectedSet.size - deleteConfirm.nodeIds.length;
                 const nodeLabel = entities.find(e => e.id === deleteConfirm.nodeIds[0])?.label ?? deleteConfirm.nodeIds[0];
-                const modalWidth = 380;
-                const modalHeight = 260;
-                const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
-                const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 900;
-                const popupLeft = Math.max(16, Math.min(deleteConfirm.x + 24, viewportWidth - modalWidth - 16));
-                const popupTop = Math.max(16, Math.min(deleteConfirm.y - 20, viewportHeight - modalHeight - 16));
+                const popupW = 248;
+                const popupH = downstreamCount > 0 ? 162 : 142;
+                const vw = typeof window !== 'undefined' ? window.innerWidth : 1440;
+                const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
+                // Place popup 10px to the right of the button; flip left if near viewport edge
+                const btnX = deleteConfirm.x;
+                const btnY = deleteConfirm.y;
+                const spaceRight = vw - btnX - 18;
+                const popupLeft = spaceRight >= popupW + 10 ? btnX + 18 + 10 : btnX - 18 - popupW - 10;
+                const popupTop = Math.max(8, Math.min(btnY - popupH / 2, vh - popupH - 8));
                 return (
                     <div
                         className="fixed inset-0 animate-fade-in"
                         style={{ zIndex: 400 }}
                         onClick={() => setDeleteConfirm(null)}
                     >
-                        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
                         <div
-                            className="fixed glass-heavy rounded-[2rem] shadow-2xl border border-red-500/30 w-[380px] overflow-hidden"
+                            className="fixed glass-heavy rounded-2xl shadow-2xl border border-red-500/30 overflow-hidden"
                             style={{
                                 left: popupLeft,
                                 top: popupTop,
+                                width: popupW,
                                 backdropFilter: 'blur(60px) saturate(180%)'
                             }}
                             onClick={e => e.stopPropagation()}
                         >
-                            <div className="h-1 w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600/40" />
-                            <div className="p-8 flex flex-col gap-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-2xl bg-red-500/15 flex items-center justify-center border border-red-500/30 flex-shrink-0">
-                                        <span className="text-red-400 text-base">⚠</span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[9px] font-black text-red-400 uppercase tracking-[0.35em]">Irreversible Action</span>
-                                        <span className="text-[15px] font-bold text-white tracking-wide">Delete Node</span>
-                                    </div>
+                            <div className="h-0.5 w-full bg-gradient-to-r from-red-600 via-red-500 to-red-600/40" />
+                            <div className="p-4 flex flex-col gap-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-red-400 text-sm leading-none">⚠</span>
+                                    <span className="text-[12px] font-bold text-white">Delete Node</span>
                                 </div>
-                                <div className="bg-red-950/30 border border-red-500/20 rounded-2xl p-5 space-y-2">
-                                    <p className="text-[13px] font-bold text-white">"{nodeLabel}"</p>
-                                    <p className="text-[12px] text-slate-300 leading-relaxed">
-                                        {downstreamCount > 0
-                                            ? <>This node and <span className="text-red-300 font-bold">{downstreamCount} downstream node{downstreamCount > 1 ? 's' : ''}</span> will be permanently deleted.</>
-                                            : <>This node will be permanently deleted.</>
-                                        }
-                                    </p>
-                                    <p className="text-[10px] text-slate-500 font-medium">This action cannot be undone.</p>
+                                <div className="bg-red-950/30 border border-red-500/20 rounded-xl px-3 py-2">
+                                    <p className="text-[11px] font-bold text-white truncate">"{nodeLabel}"</p>
+                                    {downstreamCount > 0 && (
+                                        <p className="text-[10px] text-slate-400 mt-0.5">+{downstreamCount} downstream node{downstreamCount > 1 ? 's' : ''}</p>
+                                    )}
                                 </div>
-                                <div className="flex gap-3">
+                                <div className="flex gap-2">
                                     <button
                                         onClick={confirmDelete}
-                                        className="flex-1 h-12 bg-red-600/20 hover:bg-red-600 border border-red-500/30 rounded-xl text-[10px] font-black text-red-100 transition-all duration-200 uppercase tracking-[0.2em] shadow-lg active:scale-95"
+                                        className="flex-1 h-8 bg-red-600/20 hover:bg-red-600 border border-red-500/30 rounded-lg text-[9px] font-black text-red-100 transition-all duration-200 uppercase tracking-[0.15em] active:scale-95"
                                     >
                                         Delete{downstreamCount > 0 ? ` all ${affectedSet.size}` : ''}
                                     </button>
                                     <button
                                         onClick={() => setDeleteConfirm(null)}
-                                        className="flex-1 h-12 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-black text-slate-300 transition-all duration-200 uppercase tracking-[0.2em] active:scale-95"
+                                        className="flex-1 h-8 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-[9px] font-black text-slate-300 transition-all duration-200 uppercase tracking-[0.15em] active:scale-95"
                                     >
                                         Cancel
                                     </button>

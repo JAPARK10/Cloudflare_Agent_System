@@ -70,27 +70,22 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
             const maxRetries = 7;
 
             for (let i = 0; i < maxRetries; i++) {
-                const systemPrompt = `Extract key entities from the provided core points.
-                STRICT LIMIT: Extract a maximum of 4 high-priority entities.
-                EXISTING ENTITIES (Do NOT duplicate these concepts): ${existingEntities}
-                
-                STRICT RULES:
-                1. Return ONLY a raw JSON object. No conversational text. No markdown blocks (\`\`\`json).
-                2. Do NOT include the main topic "${topic}" as an entity.
-                3. IDs must be unique, descriptive, and slugified.
-                4. The "label" for each entity MUST be the core point text itself (shortened to a meaningful title if needed).
-                
-                JSON Format:
-                { 
-                  "entities": [{"id": "string", "label": "string", "type": "concept|person|place|event", "summary": "string"}]
-                }`;
+                const systemPrompt = `YOUR ENTIRE RESPONSE MUST BE ONLY A SINGLE JSON OBJECT. Start your response with { and end with }. Do not write any text, explanation, greeting, apology, or markdown before or after the JSON. The very first character of your response must be { and the very last character must be }.
 
-                let retryPrompt = i > 0
-                    ? `YOUR PREVIOUS OUTPUT FAILED PARSING. 
-                       ERROR: ${lastError}
-                       PREVIOUS OUTPUT: ${lastResponse}
-                       FIX IT NOW. REMEMBER: NO MARKDOWN, NO TEXT, ONLY RAW JSON.`
-                    : expansion;
+Extract key entities from the provided core points.
+STRICT LIMIT: Extract a maximum of 4 high-priority entities.
+EXISTING ENTITIES (Do NOT duplicate these concepts): ${existingEntities}
+
+RULES:
+- Do NOT include the main topic "${topic}" as an entity.
+- IDs must be unique, descriptive, and slugified.
+- The "label" for each entity MUST be the core point text itself (shortened to a meaningful title if needed).
+- Output ONLY the JSON object. No markdown code fences. No surrounding text. Nothing except the JSON.
+
+Required JSON shape (output this and nothing else):
+{ "entities": [{"id": "string", "label": "string", "type": "concept|person|place|event", "summary": "string"}] }`;
+
+                const retryPrompt = expansion;
 
                 const models = [
                     '@cf/meta/llama-3.1-8b-instruct',
@@ -121,9 +116,13 @@ export class DeepDiveWorkflow extends WorkflowEntrypoint<Env, DiscoveryParams> {
                 lastResponse = rawResponse;
 
                 try {
-                    // Pre-parsing cleanup: Remove markdown blocks if AI ignored the instructions
-                    const cleanJson = rawResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-                    const parsed = JSON.parse(cleanJson);
+                    // Extract the outermost JSON object — find first { and last }
+                    const start = rawResponse.indexOf('{');
+                    const end = rawResponse.lastIndexOf('}');
+                    if (start === -1 || end === -1 || end < start) {
+                        throw new Error('No JSON object found in response');
+                    }
+                    const parsed = JSON.parse(rawResponse.slice(start, end + 1));
 
                     if (!parsed.entities || !Array.isArray(parsed.entities)) {
                         throw new Error("Missing 'entities' array in response");
