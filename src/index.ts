@@ -34,6 +34,23 @@ function validId(id: string): boolean {
     return SAFE_ID_RE.test(id);
 }
 
+/** Supports exact origin matches and wildcard subdomains via `https://*.example.com`. */
+function isAllowedOrigin(origin: string, allowedPatterns: string[]): boolean {
+    for (const pattern of allowedPatterns) {
+        if (!pattern) continue;
+        if (pattern === origin) return true;
+
+        if (pattern.includes('*')) {
+            const escaped = pattern
+                .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+                .replace(/\*/g, '.*');
+            const re = new RegExp(`^${escaped}$`);
+            if (re.test(origin)) return true;
+        }
+    }
+    return false;
+}
+
 const app = new Hono<{ Bindings: AppEnv }>();
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -54,16 +71,17 @@ app.use('*', async (c, next) => {
 // Same-origin requests (no Origin header) pass through without CORS checks.
 // Cross-origin requests whose Origin is not in ALLOWED_ORIGINS get 403.
 app.use('*', async (c, next) => {
-    const raw     = c.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://localhost:8787';
+    const raw     = c.env.ALLOWED_ORIGINS
+        ?? 'https://cerebro-ai-frontend.pages.dev,https://*.cerebro-ai-frontend.pages.dev,http://localhost:5173,http://localhost:8787';
     const allowed = raw.split(',').map(o => o.trim()).filter(Boolean);
     const origin  = c.req.header('Origin') ?? '';
 
-    if (origin && !allowed.includes(origin)) {
+    if (origin && !isAllowedOrigin(origin, allowed)) {
         return c.json({ error: 'Origin not allowed' }, 403);
     }
 
     return cors({
-        origin: (incoming) => allowed.includes(incoming) ? incoming : '',
+        origin: (incoming) => isAllowedOrigin(incoming, allowed) ? incoming : '',
         allowMethods: ['GET', 'POST', 'OPTIONS'],
         allowHeaders: ['Content-Type'],
         maxAge: 600,

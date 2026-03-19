@@ -33,7 +33,7 @@ new_sqlite_classes = ["RateLimiter"]
 #     wrangler secret put CLOUDFLARE_TEAM_DOMAIN
 
 [vars]
-ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:8787"
+ALLOWED_ORIGINS = "https://cerebro-ai-frontend.pages.dev,https://*.cerebro-ai-frontend.pages.dev,http://localhost:5173,http://localhost:8787"
 # CLOUDFLARE_TEAM_DOMAIN = "your-team-name"
 # CLOUDFLARE_ACCESS_AUD  = "your-aud-tag-from-cf-access-dashboard"
 
