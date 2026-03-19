@@ -1,5 +1,11 @@
 # Cerebro AI | Research Synthesis System
 
+## Live Access (Direct URLs)
+
+- Access directly via: `https://cerebro-ai-frontend.pages.dev`
+
+Use the frontend URL to use the application. The frontend connects to the Worker API in the background.
+
 Cerebro AI is a highly autonomous research synthesis platform built on Cloudflare's serverless infrastructure. It transforms fragmented information—like voice notes and textual data—into structured, navigable knowledge graphs.
 
 ## Core Purpose
