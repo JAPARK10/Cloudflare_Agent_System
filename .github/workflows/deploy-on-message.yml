@@ -52,6 +52,18 @@ jobs:
             echo "Missing repository secret CF_ACCOUNT_ID"
             exit 1
           fi
+          if [[ "$CLOUDFLARE_API_TOKEN" != cfut_* ]]; then
+            echo "CF_API_TOKEN has invalid format (expected to start with cfut_)"
+            exit 1
+          fi
+          if [[ "$CLOUDFLARE_API_TOKEN" =~ [[:space:]] ]]; then
+            echo "CF_API_TOKEN contains whitespace/newline. Store only the raw token string."
+            exit 1
+          fi
+          if ! [[ "$CLOUDFLARE_ACCOUNT_ID" =~ ^[a-f0-9]{32}$ ]]; then
+            echo "CF_ACCOUNT_ID must be a 32-char lowercase hex string."
+            exit 1
+          fi
 
       - name: Wrangler auth sanity check
         run: |
