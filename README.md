@@ -2,7 +2,7 @@
 
 ## Live Access (Direct URLs)
 
-- Access directly via: `https://cerebro-ai-frontend.pages.dev`
+- Access directly via: https://cerebro-ai-frontend.pages.dev
 
 Use the frontend URL to use the application. The frontend connects to the Worker API in the background.
 
