@@ -6,7 +6,8 @@ import ReasoningView from './ReasoningView';
 const Router = () => {
     const path = window.location.pathname;
     const params = new URLSearchParams(window.location.search);
-    const projectSlug = params.get('project') || 'general-research';
+    const persistedActive = window.localStorage.getItem('cerebro_active_project') || '';
+    const projectSlug = params.get('project') || persistedActive;
 
     if (path === '/reasoning') {
         return <ReasoningView activeSlug={projectSlug} onBack={() => window.close()} />;

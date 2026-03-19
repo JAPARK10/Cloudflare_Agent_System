@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import './index.css';
 
-const API_BASE = 'http://localhost:8787';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8787';
 
 interface Entity {
     id: string;
     label: string;
     type: string;
     summary: string;
+    suggestions?: string[];
 }
 
 interface Relationship {
@@ -43,6 +44,8 @@ interface GraphNode {
     x: number;
     y: number;
     label: string;
+    summary?: string;
+    suggestions?: string[];
 }
 
 const DetailPanel = ({ node, entities, slug, onExpand }: DetailPanelProps) => {
@@ -60,6 +63,12 @@ const DetailPanel = ({ node, entities, slug, onExpand }: DetailPanelProps) => {
         setQuery('');
         setSuggestions([]);
         if (node) {
+            if (Array.isArray(node.suggestions) && node.suggestions.length > 0) {
+                setSuggestions(node.suggestions);
+                setMessages([{ role: 'ai', content: "Tap a resonance point to expand the intelligence..." }]);
+                setIsLoadingSuggestions(false);
+                return;
+            }
             const requestId = ++suggestionRequestRef.current;
             fetchInitialSuggestion(node.id, requestId);
         }
@@ -422,9 +431,9 @@ export default function CerebroDashboard() {
 
                     const newNodes = data.entities.map((e, idx) => {
                         const pos = positionMap.get(e.id);
-                        if (pos) return { id: e.id, label: e.label, ...pos };
+                        if (pos) return { id: e.id, label: e.label, summary: e.summary, suggestions: e.suggestions, ...pos };
 
-                        if (e.id === 'root') return { id: 'root', label: e.label, x: 400, y: 300 };
+                        if (e.id === 'root') return { id: 'root', label: e.label, summary: e.summary, suggestions: e.suggestions, x: 400, y: 300 };
 
                         // Find parent of this node
                         let parentId: string | null = null;
@@ -434,7 +443,7 @@ export default function CerebroDashboard() {
 
                         if (!parentId) {
                             const angle = (idx / data.entities.length) * 2 * Math.PI;
-                            return { id: e.id, label: e.label, x: 400 + Math.cos(angle) * 200, y: 300 + Math.sin(angle) * 200 };
+                            return { id: e.id, label: e.label, summary: e.summary, suggestions: e.suggestions, x: 400 + Math.cos(angle) * 200, y: 300 + Math.sin(angle) * 200 };
                         }
 
                         const parentPos = { ...(positionMap.get(parentId) || { x: 400, y: 300 }) };
@@ -460,6 +469,8 @@ export default function CerebroDashboard() {
                         return {
                             id: e.id,
                             label: e.label,
+                            summary: e.summary,
+                            suggestions: e.suggestions,
                             x: parentPos.x + Math.cos(angle) * childRadius * radiusJitter,
                             y: parentPos.y + Math.sin(angle) * childRadius * radiusJitter
                         };
@@ -1083,8 +1094,11 @@ export default function CerebroDashboard() {
                     ) : (
                         <button
                             type="button"
-                            aria-label={`Delete ${selectedNode.label}`}
-                            onClick={(e) => requestDeleteNodes([selectedNode.id], e)}
+                            aria-label={`Delete ${selectedNode?.label ?? 'node'}`}
+                            onClick={(e) => {
+                                if (!selectedNode) return;
+                                requestDeleteNodes([selectedNode.id], e);
+                            }}
                             style={{
                                 position: 'absolute',
                                 left: selectedNodeDeleteAnchor.localX,

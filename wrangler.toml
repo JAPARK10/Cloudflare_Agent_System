@@ -7,9 +7,35 @@ compatibility_flags = [ "nodejs_compat" ]
 name = "RESEARCH_AGENT"
 class_name = "CerebroAgent"
 
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimiter"
+
 [[migrations]]
 tag = "v3"
 new_sqlite_classes = ["CerebroAgent"]
+
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["RateLimiter"]
+
+# ── Security configuration ──────────────────────────────────────────────────
+# ALLOWED_ORIGINS: comma-separated list of origins permitted to call this API.
+#   In production, replace with your actual workers.dev URL (or custom domain).
+#   For wrangler dev, localhost:5173 (Vite) and localhost:8787 (Worker) are
+#   already allowed by default when this var is absent.
+#
+# CLOUDFLARE_ACCESS_AUD / CLOUDFLARE_TEAM_DOMAIN:
+#   Leave commented out during local development.
+#   After setting up Cloudflare Zero Trust → Access → Applications, add these
+#   as Worker secrets (NOT plaintext vars):
+#     wrangler secret put CLOUDFLARE_ACCESS_AUD
+#     wrangler secret put CLOUDFLARE_TEAM_DOMAIN
+
+[vars]
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:8787"
+# CLOUDFLARE_TEAM_DOMAIN = "your-team-name"
+# CLOUDFLARE_ACCESS_AUD  = "your-aud-tag-from-cf-access-dashboard"
 
 [[workflows]]
 name = "DEEPDIVE_WORKFLOW"

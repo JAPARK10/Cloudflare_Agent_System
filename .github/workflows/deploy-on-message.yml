@@ -1,0 +1,62 @@
+name: Deploy To Cloudflare On Deploy Commit
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # Runs only if the last commit message in this push is exactly "deploy"
+    if: ${{ github.event.head_commit.message == 'deploy' }}
+    runs-on: ubuntu-latest
+    env:
+      WORKER_API_BASE: ${{ vars.WORKER_API_BASE }}
+      PAGES_PROJECT_NAME: ${{ vars.CF_PAGES_PROJECT_NAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate deployment variables
+        run: |
+          if [ -z "$WORKER_API_BASE" ]; then
+            echo "Missing repository variable WORKER_API_BASE"
+            exit 1
+          fi
+          if [ -z "$PAGES_PROJECT_NAME" ]; then
+            echo "Missing repository variable CF_PAGES_PROJECT_NAME"
+            exit 1
+          fi
+
+      - name: Deploy Worker via Wrangler
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: deploy
+
+      - name: Build frontend for production
+        run: |
+          cd src/frontend
+          VITE_API_BASE="$WORKER_API_BASE" npx vite build
+
+      - name: Deploy frontend to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          command: pages deploy src/frontend/dist --project-name ${{ vars.CF_PAGES_PROJECT_NAME }}

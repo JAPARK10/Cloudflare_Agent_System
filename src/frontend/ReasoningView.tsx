@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8787';
+
 interface TraceEntry {
     timestamp: number;
     step: string;
@@ -14,17 +16,34 @@ interface ReasoningViewProps {
 const ReasoningView: React.FC<ReasoningViewProps> = ({ activeSlug, onBack }) => {
     const [traces, setTraces] = useState<TraceEntry[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const fetchTraces = async () => {
+        if (!activeSlug) {
+            setTraces([]);
+            setError('No active project selected. Open Reasoning Hub from a specific project.');
+            setLoading(false);
+            return;
+        }
+
         try {
-            const res = await fetch(`http://localhost:8787/project/${activeSlug}/trace`);
+            const res = await fetch(`${API_BASE}/project/${activeSlug}/trace`);
             if (res.ok) {
-                const data = (await res.json()) as TraceEntry[];
-                setTraces(data);
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    setTraces(data as TraceEntry[]);
+                    setError(null);
+                } else {
+                    setTraces([]);
+                    setError('Trace API returned an unexpected payload.');
+                }
+            } else {
+                setError(`Trace API returned ${res.status}.`);
             }
         } catch (e) {
             console.error("Failed to fetch traces:", e);
+            setError('Failed to fetch traces.');
         } finally {
             setLoading(false);
         }
@@ -68,6 +87,9 @@ const ReasoningView: React.FC<ReasoningViewProps> = ({ activeSlug, onBack }) => 
                                 <span className="text-2xl">📡</span>
                             </div>
                             <div className="text-slate-500 text-[11px] font-black uppercase tracking-[0.4em] italic">No neural traces synthesized for this context</div>
+                            {error && (
+                                <div className="text-red-300 text-[11px] font-mono bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</div>
+                            )}
                         </div>
                     )}
 

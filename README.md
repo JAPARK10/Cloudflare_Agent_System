@@ -57,11 +57,9 @@ Before running the backend, authenticate with Cloudflare and initialize the requ
     npx wrangler vectorize create knowledge-graph-index --dimensions 1024 --metric cosine
     ```
 
-4.  **Apply SQLite Migrations** (one-time setup per environment):
-    The system uses Durable Objects with SQLite storage. Initialize the database schema:
-    ```bash
-    npx wrangler migrations apply cerebro-ai
-    ```
+4.  **Durable Object SQLite Migrations**:
+    Wrangler applies migrations during deploy based on `wrangler.toml` migration tags.
+    No separate `wrangler migrations apply` command is needed on Wrangler v4.
 
 ## Development
 
@@ -87,7 +85,8 @@ Deploy the Worker API to the Cloudflare global network:
 npm run deploy
 ```
 
-This deploys the backend Worker (API, Durable Object, Workflow bindings). The Vite frontend is not deployed by this command and must be hosted separately.
+This deploys the backend Worker (API, Durable Object, Workflow bindings) and applies migration tags from `wrangler.toml`.
+The Vite frontend is not deployed by this command and must be hosted separately.
 
 ---
 

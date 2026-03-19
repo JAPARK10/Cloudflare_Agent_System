@@ -6,6 +6,7 @@ export type Entity = {
     label: string;
     type: 'concept' | 'person' | 'place' | 'event';
     summary: string;
+    suggestions?: string[];
 };
 
 export type Relationship = {
@@ -29,6 +30,10 @@ export type ResearchProjectState = {
     notes: Array<string | { content: string }>;
     traces: TraceEntry[];
     nodePositions?: Record<string, { x: number, y: number }>;
+    /** Number of AI calls made today (resets at UTC midnight). */
+    dailyAICalls?: number;
+    /** ISO date string (YYYY-MM-DD) of the last reset. */
+    dailyAICallsDate?: string;
 };
 
 export interface Env {
@@ -51,6 +56,37 @@ export class CerebroAgent extends Agent<Env, ResearchProjectState> {
             traces: [],
             nodePositions: {}
         };
+    }
+
+    /**
+     * Increments the daily AI-call counter and throws if the per-project
+     * daily limit is exceeded.  Call this BEFORE every AI.run() invocation
+     * or workflow creation to protect against runaway costs / Quota abuse.
+     *
+     * Default limit: 50 AI operations per project per UTC day.
+     * Override by setting DAILY_AI_CALL_LIMIT in wrangler.toml [vars].
+     */
+    private checkAndIncrementBudget(): void {
+        const DAILY_LIMIT = 50;
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const state = this.getSafeState();
+
+        const sameDay     = state.dailyAICallsDate === today;
+        const currentCalls = sameDay ? (state.dailyAICalls ?? 0) : 0;
+
+        if (currentCalls >= DAILY_LIMIT) {
+            throw new Error(
+                `Daily AI budget of ${DAILY_LIMIT} operations exceeded for this project. ` +
+                `Resets at midnight UTC.`
+            );
+        }
+
+        // Persist the new count synchronously (DO is single-threaded — no race)
+        this.setState({
+            ...state,
+            dailyAICalls: currentCalls + 1,
+            dailyAICallsDate: today,
+        });
     }
 
     onStart() {
@@ -91,6 +127,7 @@ export class CerebroAgent extends Agent<Env, ResearchProjectState> {
     @callable()
     async addNote(content: any) {
         try {
+            this.checkAndIncrementBudget();
             let noteText = '';
             let audioData: Uint8Array | null = null;
 
@@ -158,6 +195,7 @@ export class CerebroAgent extends Agent<Env, ResearchProjectState> {
     @callable()
     async startDiscovery() {
         try {
+            this.checkAndIncrementBudget();
             const state = this.getSafeState();
             console.log(`Workflow started for project: ${state.name}, topic: ${state.topic}, agent: ${state.projectId}`);
 
@@ -220,6 +258,7 @@ export class CerebroAgent extends Agent<Env, ResearchProjectState> {
     @callable()
     async expandResearch(nodeId: string) {
         try {
+            this.checkAndIncrementBudget();
             const state = this.getSafeState();
             const entity = state.entities.find(e => e.id === nodeId);
             const topic = entity ? `${entity.label} in context of ${state.topic}` : nodeId;
@@ -327,10 +366,17 @@ export class CerebroAgent extends Agent<Env, ResearchProjectState> {
 
     @callable()
     async exploreTopic(nodeId: string, query: string) {
+        this.checkAndIncrementBudget();
         const state = this.getSafeState();
         const entity = state.entities.find(e => e.id === nodeId);
 
         if (!entity) return { response: "I couldn't find specific context for this node." };
+
+        await this.logTrace('explore_prompted', {
+            nodeId,
+            nodeLabel: entity.label,
+            query,
+        });
 
         const systemPrompt = `You are Cerebro, a research synthesis engine.\nThe user is asking about the node: "${entity.label}".\nCurrent knowledge summary for this node: "${entity.summary}".\n\nProvide a concise answer (2-3 sentences) to the user's question based on this context. If you don't know, briefly suggest what research could be done.\nUser question: "${query}"`;
 
@@ -366,9 +412,23 @@ export class CerebroAgent extends Agent<Env, ResearchProjectState> {
                     if (i === 3) throw e;
                 }
             }
+
+            await this.logTrace('explore_completed', {
+                nodeId,
+                nodeLabel: entity.label,
+                query,
+                output: resultText || 'No response',
+            });
+
             return { response: resultText || "Synthesis complete. No further insights at this depth." };
         } catch (e) {
             console.error("Explore Topic Final Failure:", e);
+            await this.logTrace('explore_failed', {
+                nodeId,
+                nodeLabel: entity.label,
+                query,
+                error: e instanceof Error ? e.message : String(e),
+            });
             return { response: "Neural link unstable. Analysis: " + entity.summary };
         }
     }
@@ -379,6 +439,20 @@ export class CerebroAgent extends Agent<Env, ResearchProjectState> {
         const entity = state.entities.find(e => e.id === nodeId);
 
         if (!entity) return { suggestions: ["No context available for this node."] };
+
+        if (Array.isArray(entity.suggestions) && entity.suggestions.length > 0) {
+            await this.logTrace('suggestion_cache_hit', {
+                nodeId,
+                nodeLabel: entity.label,
+                output: entity.suggestions.slice(0, 5),
+            });
+            return { suggestions: entity.suggestions.slice(0, 5) };
+        }
+
+        await this.logTrace('suggestion_prompted', {
+            nodeId,
+            nodeLabel: entity.label,
+        });
 
         const systemPrompt = `You are Cerebro, a high-fidelity intelligence synthesis engine.
 Your task is to analyze the node "${entity.label}" and provide 2-5 "Resonance Perspectives".
@@ -409,6 +483,7 @@ RULES:
             console.log(`Resonance Angles Attempt ${i + 1} using model: ${model}...`);
             
             try {
+                this.checkAndIncrementBudget();
                 const response = await this.env.AI.run(model, {
                     messages: [
                         { role: 'system', content: systemPrompt },
@@ -429,8 +504,25 @@ RULES:
                     throw new Error('No JSON object found in response');
                 }
                 const data = JSON.parse(resultText.slice(start, end + 1));
-                const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [String(data.suggestions)];
-                return { suggestions: suggestions.slice(0, 5) };
+                const suggestions = (Array.isArray(data.suggestions) ? data.suggestions : [String(data.suggestions)])
+                    .map((s: any) => String(s).trim())
+                    .filter((s: string) => s.length > 0)
+                    .slice(0, 5);
+
+                const nextState = this.getSafeState();
+                const nextEntities = nextState.entities.map(e =>
+                    e.id === nodeId ? { ...e, suggestions } : e
+                );
+                this.setState({ ...nextState, entities: nextEntities });
+
+                await this.logTrace('suggestion_completed', {
+                    nodeId,
+                    nodeLabel: entity.label,
+                    output: suggestions,
+                    model,
+                    attempt: i + 1,
+                });
+                return { suggestions };
 
             } catch (err) {
                 const errMsg = err instanceof Error ? err.message : String(err);
@@ -449,7 +541,21 @@ RULES:
         } else {
             console.error("Resonance engine failed all models", lastError, lastResultText);
         }
-        return { suggestions: ["Explore alternative systemic implications", "Analyze cross-domain resonance points", "Synthesize emerging patterns"] };
+        const fallbackSuggestions = ["Explore alternative systemic implications", "Analyze cross-domain resonance points", "Synthesize emerging patterns"];
+
+        const nextState = this.getSafeState();
+        const nextEntities = nextState.entities.map(e =>
+            e.id === nodeId ? { ...e, suggestions: fallbackSuggestions } : e
+        );
+        this.setState({ ...nextState, entities: nextEntities });
+
+        await this.logTrace('suggestion_fallback', {
+            nodeId,
+            nodeLabel: entity.label,
+            reason: sawUpstream1031 ? 'upstream_1031' : 'model_or_parse_failure',
+            output: fallbackSuggestions,
+        });
+        return { suggestions: fallbackSuggestions };
     }
 
     private async generateEmbedding(text: string): Promise<number[]> {
