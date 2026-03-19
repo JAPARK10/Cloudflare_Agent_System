@@ -71,7 +71,7 @@ jobs:
           npx wrangler whoami
 
       - name: Deploy Worker via Wrangler
-        run: npx wrangler deploy --non-interactive
+        run: npx wrangler deploy
 
       - name: Build frontend for production
         run: |
