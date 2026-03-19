@@ -78,5 +78,14 @@ jobs:
           cd src/frontend
           VITE_API_BASE="$WORKER_API_BASE" npx vite build
 
+      - name: Ensure Pages project exists
+        run: |
+          if npx wrangler pages project list | grep -q "$PAGES_PROJECT_NAME"; then
+            echo "Pages project '$PAGES_PROJECT_NAME' already exists."
+          else
+            echo "Creating Pages project '$PAGES_PROJECT_NAME'..."
+            npx wrangler pages project create "$PAGES_PROJECT_NAME" --production-branch main
+          fi
+
       - name: Deploy frontend to Cloudflare Pages
         run: npx wrangler pages deploy src/frontend/dist --project-name "$PAGES_PROJECT_NAME"
