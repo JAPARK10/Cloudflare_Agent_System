@@ -15,8 +15,11 @@ jobs:
     if: ${{ github.event.head_commit.message == 'deploy' }}
     runs-on: ubuntu-latest
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
       WORKER_API_BASE: ${{ vars.WORKER_API_BASE }}
       PAGES_PROJECT_NAME: ${{ vars.CF_PAGES_PROJECT_NAME }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
 
     steps:
       - name: Checkout
@@ -25,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
 
       - name: Install dependencies
@@ -41,13 +44,22 @@ jobs:
             echo "Missing repository variable CF_PAGES_PROJECT_NAME"
             exit 1
           fi
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "Missing repository secret CF_API_TOKEN"
+            exit 1
+          fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "Missing repository secret CF_ACCOUNT_ID"
+            exit 1
+          fi
+
+      - name: Wrangler auth sanity check
+        run: |
+          npx wrangler --version
+          npx wrangler whoami
 
       - name: Deploy Worker via Wrangler
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: deploy
+        run: npx wrangler deploy --non-interactive
 
       - name: Build frontend for production
         run: |
@@ -55,8 +67,4 @@ jobs:
           VITE_API_BASE="$WORKER_API_BASE" npx vite build
 
       - name: Deploy frontend to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages deploy src/frontend/dist --project-name ${{ vars.CF_PAGES_PROJECT_NAME }}
+        run: npx wrangler pages deploy src/frontend/dist --project-name "$PAGES_PROJECT_NAME"
